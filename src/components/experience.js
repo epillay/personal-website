@@ -11,7 +11,8 @@ const Background = styled.div`
 `
 
 const ExperienceContainer = styled(Container)`
-    height: 80vh;
+    min-height: 80vh;
+    height: fit-content;
 `
 
 const Item = styled.div`

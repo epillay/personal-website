@@ -14,8 +14,8 @@ const Background = styled.div`
 `
 
 const LandingContainer = styled(Container)`
-    padding-top: 25vh;
-    height: 75vh;
+    padding-top: 15vh;
+    height: 85vh;
 
     @media (min-width: 1000px) {
         padding-top: 25vh;
