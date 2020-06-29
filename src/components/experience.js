@@ -63,6 +63,7 @@ const ResumeLink = styled.a`
     font-size: 20px;
     padding: 11px;
     margin-top: 50px;
+    margin-bottom: 50px;
     border: solid 2px ${monochromeBlue.light3};
     background-color: ${monochromeBlue.light3};
     color: ${monochromeBlue.dark1};
