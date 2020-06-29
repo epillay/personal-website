@@ -61,9 +61,13 @@ const FigCap = styled.span`
     padding-right: 15px;
 `
 const Image = styled.img`
-    width: 250px;  
+    width: 200px;
     opacity: 1; 
     transition: .2s ease-in-out;
+
+    @media (min-width: 1000px) { 
+        width: 250px;  
+    }
 `
 
 const Figure = styled.figure`
@@ -72,6 +76,7 @@ const Figure = styled.figure`
     opacity: 1;
     position: relative;
     display: flex;
+    flex-direction: column;
 
     &:hover {
         background: ${monochromeBlue.primary};
@@ -83,13 +88,16 @@ const Figure = styled.figure`
     &:hover ${FigCap} {
         opacity: 1;
     }
+
+    @media (min-width: 1000px) { 
+        flex-direction: initial;
+    }
 `
 
 const Title = styled.div`
     display: inline-block;
-    margin-top: 16px;
     margin-bottom: 20px;
-    width: 250px;
+    width: 166px;
     font-size: 28px;
     background-color: ${monochromeBlue.light2};
     color: ${monochromeBlue.dark1};

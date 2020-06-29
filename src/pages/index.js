@@ -22,8 +22,12 @@ const ExperienceTitle = styled(Container)`
   padding-top: 70px;
   font-weight: 500;
   font-family: Bungee Shade;
-  font-size: 48px;
+  font-size: 42px;
   color: ${monochromeBlue.dark0};
+
+  @media (min-width: 1000px) {
+    font-size: 48px;
+  }
 `
 
 const ProjectsTitle = styled(ExperienceTitle)`
