@@ -23,7 +23,7 @@ const ExperienceTitle = styled(Container)`
   font-weight: 500;
   font-family: Bungee Shade;
   font-size: 42px;
-  color: ${monochromeBlue.dark0};
+  color: ${monochromeBlue.dark1};
 
   @media (min-width: 1000px) {
     font-size: 48px;
@@ -35,14 +35,10 @@ const ProjectsTitle = styled(ExperienceTitle)`
 
 const ProjectsSection = styled(Container)`
     padding-bottom: 20vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-around;
+    display: grid;
+    grid-gap: 30px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 
-    @media (min-width: 1000px) {
-      flex-direction: row;
-      justify-content: space-around;
-    }
 `
 
 const Background1 = styled.div`

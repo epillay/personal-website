@@ -48,7 +48,7 @@ const Icons = styled.div`
 const BuiltWith = styled.span`
     color: ${monochromeBlue.dark0};
     font-size: 14px;
-    margin-top: 55px;
+    margin-top: 45px;
     display: block;
     margin-bottom: 20px;
 }

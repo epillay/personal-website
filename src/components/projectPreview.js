@@ -3,6 +3,8 @@ import React from "react"
 import styled from "styled-components"
 import "../styles/fonts.js"
 import { Link } from "gatsby"
+import TransitionLink from "gatsby-plugin-transition-link"
+import AniLink from "gatsby-plugin-transition-link/AniLink"
 import { monochromeBlue } from "../styles/colors"
 
 
@@ -77,20 +79,20 @@ const Figure = styled.figure`
     position: relative;
     display: flex;
     flex-direction: column;
-
-    &:hover {
-        background: ${monochromeBlue.primary};
-    }
-    &:hover ${Image} {
-        opacity: .5
-    }
-
-    &:hover ${FigCap} {
-        opacity: 1;
-    }
+    align-items: center;
 
     @media (min-width: 1000px) { 
         flex-direction: initial;
+        &:hover {
+            background: ${monochromeBlue.primary};
+        }
+        &:hover ${Image} {
+            opacity: .5
+        }
+    
+        &:hover ${FigCap} {
+            opacity: 1;
+        }
     }
 `
 

@@ -16,13 +16,8 @@ const Background = styled.div`
 `
 
 const ProjectContainer = styled(Container)`
-    padding-top: 25vh;
-    height: 75vh;
-
-    @media (min-width: 1000px) {
-        padding-top: 25vh;
-        height: 75vh;
-    }
+    padding-top: 15vh;
+    height: 85vh;
 `
 
 const Title = styled.span`

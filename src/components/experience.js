@@ -28,7 +28,7 @@ const Company = styled.a`
     font-weight: 500;
     margin-bottom: 25px;
     display: block;
-    color: ${monochromeBlue.light0};
+    color: ${monochromeBlue.dark0};
     width: fit-content;
 `
 
@@ -56,6 +56,27 @@ const Role = styled.span`
     margin-left: 5px;
     &:last-child {
         margin-bottom: 0;
+    }
+`
+
+const ResumeLink = styled.a`
+    font-size: 20px;
+    padding: 11px;
+    margin-top: 50px;
+    border: solid 2px ${monochromeBlue.light3};
+    background-color: ${monochromeBlue.light3};
+    color: ${monochromeBlue.dark1};
+    border-radius: 10px;
+    text-decoration: none;
+    display: block;
+    width: fit-content;
+    font-weight: 500;
+    transition: .2s ease-in-out;
+
+    &:hover {
+        border: solid 2px ${monochromeBlue.light2};
+        background-color: ${monochromeBlue.light2};
+        color: ${monochromeBlue.dark2};
     }
 `
 
@@ -90,7 +111,7 @@ const Experience = ({ professionalExperiences })=> {
                     </Item>
                     )
                 }
-                {/* <Link to={data.allFile.edges[0].node.publicURL}>view my resume</Link> */}
+                <ResumeLink href={data.allFile.edges[0].node.publicURL}>view my resume</ResumeLink>
             </ExperienceContainer>
         </Background>
     )
