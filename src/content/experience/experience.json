@@ -1,0 +1,48 @@
+{
+    "professionalExperiences": [
+        {
+            "company": "Blueport Commerce",
+            "companyLink": "https://www.blueport.com/",
+            "roles": [
+                {
+                    "title": "Software Development Co-op",
+                    "date": "January 2020 - present",
+                    "description": ""
+                }
+            ]
+        },
+        {
+            "company": "Sandbox",
+            "companyLink": "https://www.sandboxneu.com/",
+            "roles": [
+                {
+                    "title": "Operations Director",
+                    "date": "May 2020 - present",
+                    "description": ""
+                },
+                {
+                    "title": "Marketing Director",
+                    "date": "January 2020 - April 2020",
+                    "description": ""
+                },
+                {
+                    "title": "Member",
+                    "date": "September 2019 - present",
+                    "description": ""
+                }
+            ]
+
+        },
+        {
+            "company": "Khoury College of Computer Sciences",
+            "companyLink": "https://www.khoury.northeastern.edu/",
+            "roles": [
+                {
+                    "title": "Teaching Assistant - CS 3500",
+                    "date": "September 2019 - December 2019",
+                    "description": ""
+                }
+            ]
+        }
+    ]
+}
