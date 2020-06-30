@@ -3,8 +3,6 @@ import React from "react"
 import styled from "styled-components"
 import "../styles/fonts.js"
 import { Link } from "gatsby"
-import TransitionLink from "gatsby-plugin-transition-link"
-import AniLink from "gatsby-plugin-transition-link/AniLink"
 import { monochromeBlue } from "../styles/colors"
 
 
