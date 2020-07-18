@@ -61,7 +61,7 @@ const IndexPage = ({ data }) => {
     <SEO title="Home" />
     <Landing {...data.landing.edges[0].node}></Landing>
     <Background1>
-      <ExperienceTitle>Experience</ExperienceTitle>
+      <ExperienceTitle id="experience-section">Experience</ExperienceTitle>
       <Experience {...data.experience.edges[0].node}></Experience>
     </Background1>
     <Background2>

@@ -52,8 +52,10 @@ const BuiltWith = styled.span`
     display: block;
     margin-bottom: 20px;
 }
+`
 
-
+const Icon = styled(FontAwesomeIcon)`
+    font-size: 26px;
 `
 
 const FooterLink = styled(SocialIcon)`
@@ -69,20 +71,20 @@ const Footer = ( {title, socials} ) => {
             <FooterContainer>
                 <Title>{title}</Title>
                 <Icons>
-                    <SocialIcon href={`mailto:${socials.email}`}>
-                        <FontAwesomeIcon icon={faEnvelope} size="2x"></FontAwesomeIcon>
+                    <SocialIcon href={`mailto:${socials.email}`} target="_blank" rel="noopener noreferrer">
+                        <Icon icon={faEnvelope}></Icon>
                     </SocialIcon>
-                    <SocialIcon href={socials.linkedIn}>
-                        <FontAwesomeIcon icon={faLinkedin} size="2x"></FontAwesomeIcon>
+                    <SocialIcon href={socials.linkedIn} target="_blank" rel="noopener noreferrer">
+                        <Icon icon={faLinkedin}></Icon>
                     </SocialIcon>
-                    <SocialIcon href={socials.github}>
-                        <FontAwesomeIcon icon={faGithub} size="2x"></FontAwesomeIcon>
+                    <SocialIcon href={socials.github} target="_blank" rel="noopener noreferrer">
+                        <Icon icon={faGithub}></Icon>
                     </SocialIcon>
                 </Icons>
                 <BuiltWith>
                     © {new Date().getFullYear()}, Built by Emily Pillay with
                     {` `}
-                    <FooterLink href="https://www.gatsbyjs.org">Gatsby</FooterLink>
+                    <FooterLink href="https://www.gatsbyjs.org" target="_blank" rel="noopener noreferrer">Gatsby</FooterLink>
                 </BuiltWith>
             </FooterContainer>
         </Background>

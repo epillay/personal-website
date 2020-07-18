@@ -99,7 +99,7 @@ const Experience = ({ professionalExperiences })=> {
             <ExperienceContainer>
                 {professionalExperiences.map(e =>
                     <Item>
-                        <Company href={e.companyLink}>{e.company}</Company>
+                        <Company href={e.companyLink} target="_blank" rel="noopener noreferrer">{e.company}</Company>
                         {e.roles.map(r =>
                             <Role>
                                 <LineOne>
@@ -112,7 +112,7 @@ const Experience = ({ professionalExperiences })=> {
                     </Item>
                     )
                 }
-                <ResumeLink href={data.allFile.edges[0].node.publicURL}>view my resume</ResumeLink>
+                <ResumeLink href={data.allFile.edges[0].node.publicURL} target="_blank" rel="noopener noreferrer">view my resume</ResumeLink>
             </ExperienceContainer>
         </Background>
     )
