@@ -71,6 +71,7 @@ const Arrow = styled(FontAwesomeIcon)`
     color: ${monochromeBlue.light0};
     font-size: 5em;
     cursor: pointer;
+    max-width: 65px;
 `
 
 const Landing = ( {title, subtitle, about} ) => {
@@ -85,7 +86,9 @@ const Landing = ( {title, subtitle, about} ) => {
                     const ref = document.getElementById("experience-section")
                     ref.scrollIntoView({ behavior: "smooth" })
                     }}
-                icon={faArrowDown}></Arrow>
+                icon={faArrowDown}
+                size="1x"
+                csssize="1em"></Arrow>
             </LandingContainer>
         </Background>
     )
