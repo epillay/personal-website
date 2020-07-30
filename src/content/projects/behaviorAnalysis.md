@@ -13,4 +13,4 @@ image: ./behaviorAnalysis.svg
 - Worked in a team of 4
 - Adapted to clients needs
 - Met up weekly to work together as a team
-- check out the repo here
+- check out the repo [here](https://github.com/sandboxnu/behavioral-analysis)

@@ -3,7 +3,7 @@ module.exports = {
     title: `Emily Pillay`,
     description: `Welcome to my personal site.`,
     author: `Emily Pillay`,
-    siteUrl: `https://epillay.vercel.app`,
+    siteUrl: `https://emilypillay.com`,
 
   },
   plugins: [
@@ -42,7 +42,7 @@ module.exports = {
         background_color: `#663399`,
         theme_color: `#663399`,
         display: `minimal-ui`,
-        icon: `src/images/gatsby-icon.png`, // This path is relative to the root of the site.
+        icon: `src/images/Logo.png`, // This path is relative to the root of the site.
       },
     },
     `gatsby-plugin-styled-components`, 
