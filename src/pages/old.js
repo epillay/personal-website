@@ -1,9 +1,6 @@
 import React, { useState } from "react"
-import { Link } from "gatsby"
 
 import Layout from "../components/v1/layout"
-import Nav from "../components/v1/nav"
-import Image from "../components/v1/image"
 import SEO from "../components/v1/seo"
 import Landing from "../components/v1/landing"
 import Experience from "../components/v1/experience"
@@ -12,7 +9,6 @@ import Footer from "../components/v1/footer"
 
 import styled from "styled-components"
 import Container from "../components/v1/container"
-import { melon, floatie, bluebell, oak, bananaMilk } from "../styles/v1/colors"
 import { monochromeMelon, monochromeBlue } from "../styles/v1/colors"
 
 const ExperienceTitle = styled(Container)`

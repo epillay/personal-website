@@ -1,14 +1,11 @@
 import React from "react"
-
 import Layout from "../components/v1/layout"
 import SEO from "../components/v1/seo"
 import { Link } from "gatsby"
 import styled from "styled-components"
 import "../styles/fonts.js"
 import Container from "../components/v1/container"
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { faArrowDown } from "@fortawesome/free-solid-svg-icons"
-import { melon, floatie, bluebell, oak, bananaMilk } from "../styles/v1/colors"
+import { melon, bluebell, oak, bananaMilk } from "../styles/v1/colors"
 
 const Background = styled.div`
   background-color: #fddfd7;

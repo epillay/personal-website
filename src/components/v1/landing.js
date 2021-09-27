@@ -1,18 +1,10 @@
-import PropTypes from "prop-types"
 import React from "react"
 import styled from "styled-components"
 import "../../styles/fonts.js"
 import Container from "./container"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faArrowDown } from "@fortawesome/free-solid-svg-icons"
-import {
-  melon,
-  floatie,
-  bluebell,
-  oak,
-  bananaMilk,
-  monochromeBlue,
-} from "../../styles/v1/colors"
+import { monochromeBlue } from "../../styles/v1/colors"
 
 const Background = styled.div`
   background-color: ${monochromeBlue.light3};

@@ -5,14 +5,7 @@ import { faLinkedin, faGithub } from "@fortawesome/free-brands-svg-icons"
 import { faEnvelope } from "@fortawesome/free-solid-svg-icons"
 import styled from "styled-components"
 import Container from "./container"
-import {
-  melon,
-  floatie,
-  bluebell,
-  oak,
-  bananaMilk,
-  monochromeBlue,
-} from "../../styles/v1/colors"
+import { monochromeBlue } from "../../styles/v1/colors"
 
 const Background = styled.div`
   background-color: white;

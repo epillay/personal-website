@@ -1,11 +1,8 @@
-import PropTypes from "prop-types"
 import React, { useState } from "react"
 import styled from "styled-components"
 import "../../styles/fonts.js"
-import Container from "./container"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faPaintBrush } from "@fortawesome/free-solid-svg-icons"
-import { allColorSchemes } from "../../styles/v1/colors"
 
 const Bar = styled.div`
   display: flex;
