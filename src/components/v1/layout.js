@@ -9,7 +9,7 @@ import React from "react"
 import PropTypes from "prop-types"
 import { useStaticQuery, graphql } from "gatsby"
 import { createGlobalStyle } from "styled-components"
-import "../styles/fonts.js"
+import "../../styles/fonts.js"
 
 const GlobalStyle = createGlobalStyle`
   body {
@@ -31,10 +31,10 @@ const Layout = ({ children }) => {
   `)
 
   return (
-      <div>
+    <div>
       <GlobalStyle></GlobalStyle>
-        <main>{children}</main>
-      </div>
+      <main>{children}</main>
+    </div>
   )
 }
 
