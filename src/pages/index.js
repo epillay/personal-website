@@ -141,11 +141,12 @@ const GetInTouchText = styled(BigText)`
 const fadeIn = keyframes`
   0% {
     opacity: 0;
-    font-color: blue;
+  }
+  50% {
+    opacity: 1;
   }
   100% {
-    opacity: 1;
-    font-color: red;
+    opacity: 0;
   }
 `
 
@@ -153,7 +154,8 @@ const Scroll = styled(About)`
   font-family: Montserrat;
   position: absolute;
   bottom: 48px;
-  animation: 3s ${fadeIn} ease-out;
+  font-size: 22px;
+  animation: 3s ${fadeIn} infinite;
 `
 
 const IndexPage = () => {
