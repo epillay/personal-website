@@ -176,7 +176,8 @@ const IndexPage = () => {
           <BigText>Nike</BigText>
           <Description>
             I worked on store inventory management services + new store concept
-            pitch with a group of other interns
+            pitch with a group of other interns, our presentation made it to the
+            top four!
           </Description>
         </NikeSlide>
         <AppfolioSlide>
@@ -185,8 +186,10 @@ const IndexPage = () => {
             Appfolio <AppfolioSubtext>Investment Management</AppfolioSubtext>
           </BigText>
           <Description>
-            worked with ruby, react, and typescript + I iterated on a contact
-            form feature with customer feedback
+            worked with ruby, react, and typescript on customer relationship
+            management functionalities + I iterated on a contact form feature
+            with customer feedback, participated in customer calls, and worked
+            on user scenarios
           </Description>
         </AppfolioSlide>
         <BlueportSlide>
@@ -226,7 +229,7 @@ const IndexPage = () => {
             {", "}
             for the current version of my website, I wanted to make a simple
             website from both a development and design perspective that still
-            looked polished.
+            looked polished
           </Description>
         </PersonalWebsiteSlide>
         <ViennaSlide>
@@ -234,7 +237,8 @@ const IndexPage = () => {
           <BigText>Vienna, Austria</BigText>
           <Description>
             I studied textile design + creative coding in Vienna, and had our
-            program shown at the Ars Electronica museum, check it out{" "}
+            "fish bowl" program shown at the Ars Electronica museum, check it
+            out{" "}
             <StyledLink href="https://youtu.be/18q1gBEdaGQ" target="_blank">
               here
             </StyledLink>
@@ -244,7 +248,8 @@ const IndexPage = () => {
           <Header>here are some of my</Header>
           <BigText>Hobbies</BigText>
           <Description>
-            I love baking, penpalling, thrifting, arts and crafts, and gaming
+            I love baking, penpalling, thrifting, arts and crafts, and genshin
+            impact
           </Description>
         </HobbiesSlide>
         <GetInTouchSlide>
