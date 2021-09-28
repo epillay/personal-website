@@ -4,7 +4,6 @@ module.exports = {
     description: `Welcome to my personal site.`,
     author: `Emily Pillay`,
     siteUrl: `https://emilypillay.com`,
-
   },
   plugins: [
     `gatsby-plugin-react-helmet`,
@@ -28,7 +27,7 @@ module.exports = {
       resolve: `gatsby-source-filesystem`,
       options: {
         name: `markdown`,
-        path: `${__dirname}/src/content/projects/`,
+        path: `${__dirname}/src/content/v1/projects/`,
       },
     },
     `gatsby-transformer-sharp`,
@@ -42,10 +41,10 @@ module.exports = {
         background_color: `#663399`,
         theme_color: `#663399`,
         display: `minimal-ui`,
-        icon: `src/images/Logo.png`, // This path is relative to the root of the site.
+        icon: `src/images/logo-black.png`, // This path is relative to the root of the site.
       },
     },
-    `gatsby-plugin-styled-components`, 
+    `gatsby-plugin-styled-components`,
     `gatsby-plugin-sitemap`,
     // this (optional) plugin enables Progressive Web App + Offline functionality
     // To learn more, visit: https://gatsby.dev/offline

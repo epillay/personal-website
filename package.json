@@ -29,6 +29,7 @@
     "react-helmet": "^6.1.0",
     "styled-components": "^5.1.1",
     "typeface-bungee-shade": "^0.0.71",
+    "typeface-courier-prime": "^1.1.13",
     "typeface-montserrat": "^0.0.75",
     "webpack": "^4.43.0"
   },
