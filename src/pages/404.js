@@ -44,6 +44,7 @@ const Description = styled.div`
   font-size: 18px;
   margin-left: 4px;
   margin-top: 8px;
+  text-align: center;
 
   @media (min-width: 800px) {
     font-size: 20px;
