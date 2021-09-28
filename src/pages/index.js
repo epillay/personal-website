@@ -56,8 +56,14 @@ const Header = styled.span`
 
   @media (min-width: 800px) {
     font-size: 36px;
+    text-align: left;
   }
 `
+
+const IntroHeader = styled(Header)`
+  text-align: center;
+`
+
 const BigText = styled.span`
   font-family: Montserrat;
   font-size: 50px;
@@ -66,6 +72,10 @@ const BigText = styled.span`
   @media (min-width: 800px) {
     font-size: 80px;
   }
+`
+
+const CenterBigText = styled(BigText)`
+  text-align: center;
 `
 
 const Description = styled.div`
@@ -109,15 +119,17 @@ const BlueportSlide = styled(IntroSlide)`
   align-items: start;
 `
 
+const BigBlueportText = styled(BigText)`
+  font-size: 40px;
+`
+
 const AppfolioSlide = styled(BlueportSlide)``
 
-const AppfolioSubtext = styled(Header)`
-  font-size: 20px;
+const AppfolioSubtext = styled(BigText)`
+  display: none;
 
-  @media (min-width: 1000px) {
-    font-family: Montserrat;
-    font-size: 80px;
-    margin-top: 4px;
+  @media (min-width: 800px) {
+    display: block;
   }
 `
 
@@ -136,6 +148,7 @@ const GetInTouchSlide = styled(IntroSlide)``
 const GetInTouchText = styled(BigText)`
   font-size: 46px;
   margin-top: 8px;
+  text-align: center;
 `
 
 const fadeIn = keyframes`
@@ -163,8 +176,8 @@ const IndexPage = () => {
     <Layout>
       <GradientContainer>
         <IntroSlide>
-          <Header>hello, my name is</Header>
-          <BigText>Emily Pillay</BigText>
+          <IntroHeader>hello, my name is</IntroHeader>
+          <CenterBigText>Emily Pillay</CenterBigText>
           <About>
             I’m in my 4th year at Northeastern University studying computer
             science + cognitive psychology
@@ -194,7 +207,7 @@ const IndexPage = () => {
         </AppfolioSlide>
         <BlueportSlide>
           <Header>co-op</Header>
-          <BigText>Blueport Commerce</BigText>
+          <BigBlueportText>Blueport Commerce</BigBlueportText>
           <Description>
             I worked on a delivery tracking project, co-op led project,
             onboarding new co-ops, angular and custom css, and lead agile
