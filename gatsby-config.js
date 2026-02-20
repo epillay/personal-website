@@ -30,8 +30,6 @@ module.exports = {
         path: `${__dirname}/src/content/v1/projects/`,
       },
     },
-    `gatsby-transformer-sharp`,
-    `gatsby-plugin-sharp`,
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
