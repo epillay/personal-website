@@ -1474,10 +1474,10 @@
   resolved "https://registry.yarnpkg.com/@leichtgewicht/ip-codec/-/ip-codec-2.0.5.tgz#4fc56c15c580b9adb7dc3c333a134e540b44bfb1"
   integrity sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==
 
-"@mdx-js/util@^2.0.0-next.8":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@mdx-js/util/-/util-2.0.0.tgz#1c883c75f23d4b07a5d3292aa01145b646f30d06"
-  integrity sha512-428sYViiQaPQJhkcNm7xwZvAbCwzqNQJzMMTG9bDwrhgT+75VzA8dSeqy1QVSBElf+0wtwGXvAccoHan78XNZA==
+"@mdx-js/util@1.6.22", "@mdx-js/util@^2.0.0-next.8":
+  version "1.6.22"
+  resolved "https://registry.yarnpkg.com/@mdx-js/util/-/util-1.6.22.tgz#219dfd89ae5b97a8801f015323ffa4b62f45718b"
+  integrity sha512-H1rQc1ZOHANWBvPcW+JpGwr+juXSxM8Q8YCkm3GhZd8REu1fHR3z99CErO1p9pkcfcxZnMdIZdIsXkOHY0NilA==
 
 "@microsoft/fetch-event-source@2.0.1":
   version "2.0.1"
