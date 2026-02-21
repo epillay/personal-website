@@ -1,302 +1,503 @@
-import React from "react"
-import styled, { keyframes } from "styled-components"
-import SlideContainer from "../components/v2/slideContainer"
-import Slide from "../components/v2/slide"
-import Layout from "../components/v1/layout"
+import React, { useState, useRef, useEffect } from "react"
+import styled, { keyframes, createGlobalStyle } from "styled-components"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faLinkedin, faGithub } from "@fortawesome/free-brands-svg-icons"
 import { faEnvelope } from "@fortawesome/free-solid-svg-icons"
+import Layout from "../components/v1/layout"
 
-const gradient = keyframes`
-  0% {
-    background-position: 0% 50%
-  }
-  50% {
-    background-position: 100% 50%
-  }
-  100% {
-    background-position: 0% 50%
-  }
+// ─── Palette ────────────────────────────────────────────────────────────────
+const bg     = "#F6F1EB"
+const cream  = "#18140E"
+const pink   = "#C4503A"
+const yellow = "#B8913C"
+const muted  = "rgba(24, 20, 14, 0.28)"
+
+// ─── Animations ─────────────────────────────────────────────────────────────
+const blink = keyframes`
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 `
-const GradientContainer = styled(SlideContainer)`
-  background: linear-gradient(
-    -45deg,
-    #fc35ac,
-    #b14ebe,
-    #fedd74,
-    #86e0ce,
-    #3bd7e4
-  );
-  background-size: 400% 400%;
-  -webkit-animation: ${gradient} 15s ease infinite;
+const breathe = keyframes`
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.85; }
 `
 
-const SocialIcon = styled.a`
-  text-decoration: none;
-  color: inherit;
-  margin-right: 20px;
-  margin-left: 20px;
-`
-const Icon = styled(FontAwesomeIcon)`
-  font-size: 18px;
-
-  @media (min-width: 800px) {
-    font-size: 24px;
+// ─── Global ─────────────────────────────────────────────────────────────────
+const DarkGlobal = createGlobalStyle`
+  html, body {
+    background: ${bg};
   }
+  ::-webkit-scrollbar { display: none; }
+  * { -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box; }
 `
-const Icons = styled.div`
+
+
+// ─── Viewport ───────────────────────────────────────────────────────────────
+const Viewport = styled.div`
+  height: 100vh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  background: ${bg};
+  color: ${cream};
+`
+
+// ─── Slides ──────────────────────────────────────────────────────────────────
+const Slide = styled.section`
+  height: 100vh;
+  scroll-snap-align: start;
   display: flex;
-  justify-content: center;
-`
-
-const Header = styled.span`
-  font-family: Courier;
-  font-size: 24px;
-  margin-left: 4px;
-
-  @media (min-width: 800px) {
-    font-size: 36px;
-    text-align: left;
-  }
-`
-
-const IntroHeader = styled(Header)`
-  text-align: center;
-`
-
-const BigText = styled.span`
-  font-family: Montserrat;
-  font-size: 50px;
-  margin-top: 4px;
-
-  @media (min-width: 800px) {
-    font-size: 80px;
-  }
-`
-
-const CenterBigText = styled(BigText)`
-  text-align: center;
-`
-
-const Description = styled.div`
-  font-family: Courier;
-  font-size: 18px;
-  margin-left: 4px;
-  margin-top: 8px;
-
-  @media (min-width: 800px) {
-    font-size: 20px;
-  }
-
-  @media (min-width: 1000px) {
-    padding-bottom: 36px;
-  }
-`
-const StyledLink = styled.a`
-  color: inherit;
-`
-
-const StyledSandboxLink = styled(StyledLink)`
-  text-decoration: none;
-  border-bottom: 1px solid black;
-`
-
-const IntroSlide = styled(Slide)`
   flex-direction: column;
-  align-items: center;
+  justify-content: center;
+  padding: 0 clamp(1.5rem, 7vw, 7rem);
   position: relative;
-
-  @media (min-width: 800px) {
-    font-size: 80px;
-  }
 `
-
-const About = styled(Description)`
+const CenterSlide = styled(Slide)`
+  align-items: center;
   text-align: center;
 `
 
-const BlueportSlide = styled(IntroSlide)`
-  align-items: start;
+// ─── Progress Dots ───────────────────────────────────────────────────────────
+const NavDots = styled.nav`
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 500;
+  @media (max-width: 600px) { display: none; }
 `
-
-const BigBlueportText = styled(BigText)`
-  font-size: 40px;
-`
-
-const AppfolioSlide = styled(BlueportSlide)``
-
-const AppfolioSubtext = styled(BigText)`
-  display: none;
-
-  @media (min-width: 800px) {
-    display: block;
+const NavDot = styled.button`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: ${({ $active }) => ($active ? pink : muted)};
+  transform: ${({ $active }) => ($active ? "scale(1.8)" : "scale(1)")};
+  transition: background 0.3s ease, transform 0.3s ease;
+  &:hover {
+    background: ${cream};
+    transform: scale(1.5);
   }
 `
 
-const NikeSlide = styled(BlueportSlide)``
-
-const PersonalWebsiteSlide = styled(BlueportSlide)``
-
-const ViennaSlide = styled(BlueportSlide)``
-
-const SandboxSlide = styled(BlueportSlide)``
-
-const HobbiesSlide = styled(BlueportSlide)``
-
-const GetInTouchSlide = styled(IntroSlide)``
-
-const GetInTouchText = styled(BigText)`
-  font-size: 46px;
-  margin-top: 8px;
-  text-align: center;
-`
-
-const fadeIn = keyframes`
-  0% {
-    opacity: 0;
-  }
-  50% {
+// ─── Hero Typography ─────────────────────────────────────────────────────────
+const HeroName = styled.h1`
+  font-family: "Bungee Shade", cursive;
+  font-size: clamp(3rem, 10.5vw, 9.5rem);
+  line-height: 0.88;
+  margin: 0;
+  color: ${cream};
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.6s ease-out 80ms, transform 0.6s ease-out 80ms;
+  .is-visible & {
     opacity: 1;
+    transform: translateY(0);
   }
-  100% {
-    opacity: 0;
+`
+const Cursor = styled.span`
+  display: inline-block;
+  width: 3px;
+  height: 0.72em;
+  background: ${pink};
+  margin-left: 8px;
+  vertical-align: middle;
+  animation: ${blink} 1s step-end infinite;
+`
+const HeroRole = styled.p`
+  font-family: "Courier Prime", Courier, monospace;
+  font-size: clamp(11px, 1.4vw, 16px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: ${pink};
+  margin: 28px 0 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 220ms, transform 0.55s ease-out 220ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+const ScrollCue = styled.span`
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Courier Prime", Courier, monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: ${muted};
+  animation: ${breathe} 3s ease-in-out infinite;
+  white-space: nowrap;
+`
+
+// ─── Section Slides ───────────────────────────────────────────────────────────
+const AccentBar = styled.div`
+  width: 0;
+  height: 2px;
+  background: ${({ $yellow }) => ($yellow ? yellow : pink)};
+  margin-bottom: 18px;
+  transition: width 0.45s ease-out 0ms;
+  .is-visible & {
+    width: 44px;
+  }
+`
+const Category = styled.span`
+  font-family: "Courier Prime", Courier, monospace;
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: ${({ $yellow }) => ($yellow ? yellow : pink)};
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.55s ease-out 80ms, transform 0.55s ease-out 80ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+const BigText = styled.h2`
+  font-family: Montserrat, sans-serif;
+  font-weight: 900;
+  font-size: clamp(2.8rem, 9.5vw, 8.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  margin: 0;
+  color: ${cream};
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.55s ease-out 160ms, transform 0.55s ease-out 160ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+const Sub = styled.span`
+  display: block;
+  font-size: 0.42em;
+  font-weight: 900;
+  opacity: 0.22;
+  line-height: 1.15;
+  margin-top: 4px;
+`
+const Body = styled.p`
+  font-family: "Courier Prime", Courier, monospace;
+  font-size: clamp(13px, 1.45vw, 16px);
+  line-height: 1.8;
+  max-width: 540px;
+  color: rgba(24, 20, 14, 0.6);
+  margin: 22px 0 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 260ms, transform 0.55s ease-out 260ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+const InlineLink = styled.a`
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(24, 20, 14, 0.2);
+  transition: border-color 0.2s;
+  &:hover { border-color: ${pink}; }
+`
+
+// ─── Hobbies ─────────────────────────────────────────────────────────────────
+const HobbyList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 0;
+`
+const Hobby = styled.li`
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.25rem, 3vw, 2.5rem);
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: ${cream};
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  &:nth-child(1) { transition-delay: 260ms; }
+  &:nth-child(2) { transition-delay: 310ms; }
+  &:nth-child(3) { transition-delay: 360ms; }
+  &:nth-child(4) { transition-delay: 410ms; }
+  &:nth-child(5) { transition-delay: 460ms; }
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  &::before {
+    content: "→";
+    color: ${pink};
+    margin-right: 12px;
+    font-weight: 400;
   }
 `
 
-const Scroll = styled(About)`
-  font-family: Montserrat;
-  position: absolute;
-  bottom: 48px;
-  font-size: 22px;
-  animation: 3s ${fadeIn} infinite;
+// ─── Contact ─────────────────────────────────────────────────────────────────
+const ContactBig = styled(BigText)`
+  font-size: clamp(2.5rem, 8.5vw, 7.5rem);
 `
+const Socials = styled.div`
+  display: flex;
+  gap: 36px;
+  margin-top: 40px;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 300ms, transform 0.55s ease-out 300ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
+`
+const SocialLink = styled.a`
+  color: ${muted};
+  font-size: clamp(20px, 2.4vw, 26px);
+  text-decoration: none;
+  transition: color 0.2s ease, transform 0.2s ease;
+  &:hover {
+    color: ${cream};
+    transform: translateY(-4px);
+  }
+`
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+const TOTAL = 9
 
 const IndexPage = () => {
+  const [active, setActive] = useState(0)
+  const vpRef = useRef(null)
+  const slideRefs = useRef([])
+
+  useEffect(() => {
+    const el = vpRef.current
+    if (!el) return
+    const handler = () => {
+      setActive(Math.round(el.scrollTop / window.innerHeight))
+    }
+    el.addEventListener("scroll", handler, { passive: true })
+    return () => el.removeEventListener("scroll", handler)
+  }, [])
+
+  useEffect(() => {
+    const root = vpRef.current
+    if (!root) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible")
+            // To re-trigger on scroll back: remove observer.unobserve and
+            // add `else { entry.target.classList.remove("is-visible") }`
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { root, threshold: 0.3 }
+    )
+
+    slideRefs.current.forEach(el => el && observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
+
+  const goTo = i => {
+    const el = vpRef.current
+    if (!el) return
+    el.scrollTo({ top: i * window.innerHeight, behavior: "smooth" })
+  }
+
   return (
     <Layout>
-      <GradientContainer>
-        <IntroSlide>
-          <IntroHeader>hello, my name is</IntroHeader>
-          <CenterBigText>Emily Pillay</CenterBigText>
-          <About>
-            I’m in my 4th year at Northeastern University studying computer
-            science + cognitive psychology
-          </About>
-          <Scroll>scroll to learn more about me</Scroll>
-        </IntroSlide>
-        <NikeSlide>
-          <Header>internship</Header>
+      <DarkGlobal />
+
+      <NavDots aria-label="Page navigation">
+        {Array.from({ length: TOTAL }).map((_, i) => (
+          <NavDot
+            key={i}
+            $active={active === i}
+            onClick={() => goTo(i)}
+            aria-label={`Go to slide ${i + 1}`}
+          />
+        ))}
+      </NavDots>
+
+      <Viewport ref={vpRef}>
+
+        {/* 0 — Hero */}
+        <Slide ref={el => (slideRefs.current[0] = el)}>
+          <HeroName>
+            Emily
+            <br />
+            Pillay
+            <Cursor />
+          </HeroName>
+          <HeroRole>Senior Software Engineer</HeroRole>
+          <ScrollCue>scroll to explore ↓</ScrollCue>
+        </Slide>
+
+        {/* 1 — Klaviyo */}
+        <Slide ref={el => (slideRefs.current[1] = el)}>
+          <AccentBar />
+          <Category>senior software engineer</Category>
+          <BigText>Klaviyo</BigText>
+          <Body>
+            On the WhatsApp team, building infrastructure to send messages at
+            scale and supporting WhatsApp as a fully integrated channel across
+            the Klaviyo platform.
+          </Body>
+        </Slide>
+
+        {/* 2 — Nike */}
+        <Slide ref={el => (slideRefs.current[2] = el)}>
+          <AccentBar />
+          <Category>internship</Category>
           <BigText>Nike</BigText>
-          <Description>
-            I worked on store inventory management services + new store concept
-            pitch with a group of other interns, our presentation made it to the
-            top four!
-          </Description>
-        </NikeSlide>
-        <AppfolioSlide>
-          <Header>co-op</Header>
+          <Body>
+            Worked on store inventory management services and led a new store
+            concept pitch with fellow interns. Our presentation made the top four.
+          </Body>
+        </Slide>
+
+        {/* 2 — Appfolio */}
+        <Slide ref={el => (slideRefs.current[3] = el)}>
+          <AccentBar />
+          <Category>co-op</Category>
           <BigText>
-            Appfolio <AppfolioSubtext>Investment Management</AppfolioSubtext>
+            Appfolio
+            <Sub>Investment Management</Sub>
           </BigText>
-          <Description>
-            worked with ruby, react, and typescript on customer relationship
-            management functionalities + I iterated on a contact form feature
-            with customer feedback, participated in customer calls, and worked
-            on user scenarios
-          </Description>
-        </AppfolioSlide>
-        <BlueportSlide>
-          <Header>co-op</Header>
-          <BigBlueportText>Blueport Commerce</BigBlueportText>
-          <Description>
-            I worked on a delivery tracking project, co-op led project,
-            onboarding new co-ops, angular and custom css, and lead agile
-            meetings
-          </Description>
-        </BlueportSlide>
-        <SandboxSlide>
-          <Header>student-led software consultancy</Header>
+          <Body>
+            Ruby, React, and TypeScript on CRM features. Iterated on a contact
+            form with real customer feedback, joined customer calls, and owned
+            user scenarios end-to-end.
+          </Body>
+        </Slide>
+
+        {/* 3 — Blueport */}
+        <Slide ref={el => (slideRefs.current[4] = el)}>
+          <AccentBar />
+          <Category>co-op</Category>
           <BigText>
-            <StyledSandboxLink
+            Blueport
+            <Sub>Commerce</Sub>
+          </BigText>
+          <Body>
+            Built a delivery tracking project, led agile ceremonies, onboarded
+            incoming co-ops, and shipped custom CSS components in Angular.
+          </Body>
+        </Slide>
+
+        {/* 4 — Sandbox */}
+        <Slide ref={el => (slideRefs.current[5] = el)}>
+          <AccentBar />
+          <Category>student-led consultancy</Category>
+          <BigText>
+            <InlineLink
               href="https://www.sandboxnu.com/"
               target="_blank"
+              rel="noopener noreferrer"
             >
               Sandbox
-            </StyledSandboxLink>
+            </InlineLink>
           </BigText>
-          <Description>
-            I worked on a react psychology project, became marketing director,
-            lead our website redesign, worked on SearchNeu, and became
-            operations director
-          </Description>
-        </SandboxSlide>
-        <PersonalWebsiteSlide>
-          <Header>website v0</Header>
-          <BigText>Personal Website</BigText>
-          <Description>
-            this was the first iteration of my website that I made in summer of
-            2020 check it out{" "}
-            <StyledLink href="/old" target="_blank">
-              here
-            </StyledLink>
-            {", "}
-            for the current version of my website, I wanted to make a simple
-            website from both a development and design perspective that still
-            looked polished
-          </Description>
-        </PersonalWebsiteSlide>
-        <ViennaSlide>
-          <Header>study abroad</Header>
-          <BigText>Vienna, Austria</BigText>
-          <Description>
-            I studied textile design + creative coding in Vienna, and had our
-            "fish bowl" program shown at the Ars Electronica museum, check it
-            out{" "}
-            <StyledLink href="https://youtu.be/18q1gBEdaGQ" target="_blank">
-              here
-            </StyledLink>
-          </Description>
-        </ViennaSlide>
-        <HobbiesSlide>
-          <Header>here are some of my</Header>
-          <BigText>Hobbies</BigText>
-          <Description>
-            I love baking, penpalling, thrifting, arts and crafts, and genshin
-            impact
-          </Description>
-        </HobbiesSlide>
-        <GetInTouchSlide>
-          <Header>feel free to</Header>
-          <GetInTouchText>Get in Touch</GetInTouchText>
-          <Description>
-            <Icons>
-              <SocialIcon
-                href={`mailto:pillay.e@northeastern.edu`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon icon={faEnvelope}></Icon>
-              </SocialIcon>
-              <SocialIcon
-                href={"https://linkedin.com/in/epillay"}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon icon={faLinkedin}></Icon>
-              </SocialIcon>
-              <SocialIcon
-                href={"https://github.com/epillay"}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Icon icon={faGithub}></Icon>
-              </SocialIcon>
-            </Icons>
-          </Description>
-        </GetInTouchSlide>
-      </GradientContainer>
+          <Body>
+            React psych research app → marketing director → led the website
+            redesign → SearchNEU contributor → operations director.
+          </Body>
+        </Slide>
+
+        {/* 5 — Vienna */}
+        <Slide ref={el => (slideRefs.current[6] = el)}>
+          <AccentBar $yellow />
+          <Category $yellow>study abroad</Category>
+          <BigText>
+            Vienna
+            <Sub>Austria</Sub>
+          </BigText>
+          <Body>
+            Studied textile design + creative coding. Our "fish bowl" program
+            was exhibited at the{" "}
+            <InlineLink
+              href="https://youtu.be/18q1gBEdaGQ"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ars Electronica
+            </InlineLink>{" "}
+            museum.
+          </Body>
+        </Slide>
+
+        {/* 6 — Hobbies */}
+        <Slide ref={el => (slideRefs.current[7] = el)}>
+          <AccentBar />
+          <Category>outside the terminal</Category>
+          <BigText>Life</BigText>
+          <HobbyList>
+            <Hobby>learning</Hobby>
+            <Hobby>thrifting</Hobby>
+            <Hobby>travelling</Hobby>
+            <Hobby>cooking</Hobby>
+            <Hobby>한국어</Hobby>
+          </HobbyList>
+        </Slide>
+
+        {/* 7 — Contact */}
+        <CenterSlide ref={el => (slideRefs.current[8] = el)}>
+          <Category>let's connect</Category>
+          <ContactBig>
+            Get in
+            <br />
+            Touch
+          </ContactBig>
+          <Socials>
+            <SocialLink
+              href="mailto:epillay221@gmail.com"
+              aria-label="Email"
+            >
+              <FontAwesomeIcon icon={faEnvelope} />
+            </SocialLink>
+            <SocialLink
+              href="https://linkedin.com/in/epillay"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+            >
+              <FontAwesomeIcon icon={faLinkedin} />
+            </SocialLink>
+            <SocialLink
+              href="https://github.com/epillay"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub"
+            >
+              <FontAwesomeIcon icon={faGithub} />
+            </SocialLink>
+          </Socials>
+        </CenterSlide>
+
+      </Viewport>
     </Layout>
   )
 }
+
+export const Head = () => (
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+)
 
 export default IndexPage

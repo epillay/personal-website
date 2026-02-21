@@ -6,7 +6,6 @@ module.exports = {
     siteUrl: `https://emilypillay.com`,
   },
   plugins: [
-    `gatsby-plugin-react-helmet`,
     {
       resolve: `gatsby-source-filesystem`,
       options: {
@@ -30,8 +29,6 @@ module.exports = {
         path: `${__dirname}/src/content/v1/projects/`,
       },
     },
-    `gatsby-transformer-sharp`,
-    `gatsby-plugin-sharp`,
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
@@ -41,7 +38,7 @@ module.exports = {
         background_color: `#663399`,
         theme_color: `#663399`,
         display: `minimal-ui`,
-        icon: `src/images/logo-black.png`, // This path is relative to the root of the site.
+        icon: `static/favicon.svg`, // This path is relative to the root of the site.
       },
     },
     `gatsby-plugin-styled-components`,
