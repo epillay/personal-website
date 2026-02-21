@@ -32,6 +32,7 @@ const DarkGlobal = createGlobalStyle`
   * { -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box; }
 `
 
+
 // ─── Viewport ───────────────────────────────────────────────────────────────
 const Viewport = styled.div`
   height: 100vh;
@@ -93,6 +94,13 @@ const HeroName = styled.h1`
   margin: 0;
   color: ${cream};
   letter-spacing: -0.01em;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.6s ease-out 80ms, transform 0.6s ease-out 80ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const Cursor = styled.span`
   display: inline-block;
@@ -110,6 +118,13 @@ const HeroRole = styled.p`
   text-transform: uppercase;
   color: ${pink};
   margin: 28px 0 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 220ms, transform 0.55s ease-out 220ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const ScrollCue = styled.span`
   position: absolute;
@@ -127,10 +142,14 @@ const ScrollCue = styled.span`
 
 // ─── Section Slides ───────────────────────────────────────────────────────────
 const AccentBar = styled.div`
-  width: 44px;
+  width: 0;
   height: 2px;
   background: ${({ $yellow }) => ($yellow ? yellow : pink)};
   margin-bottom: 18px;
+  transition: width 0.45s ease-out 0ms;
+  .is-visible & {
+    width: 44px;
+  }
 `
 const Category = styled.span`
   font-family: "Courier Prime", Courier, monospace;
@@ -140,6 +159,13 @@ const Category = styled.span`
   color: ${({ $yellow }) => ($yellow ? yellow : pink)};
   display: block;
   margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.55s ease-out 80ms, transform 0.55s ease-out 80ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const BigText = styled.h2`
   font-family: Montserrat, sans-serif;
@@ -150,6 +176,13 @@ const BigText = styled.h2`
   text-transform: uppercase;
   margin: 0;
   color: ${cream};
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.55s ease-out 160ms, transform 0.55s ease-out 160ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const Sub = styled.span`
   display: block;
@@ -166,6 +199,13 @@ const Body = styled.p`
   max-width: 540px;
   color: rgba(24, 20, 14, 0.6);
   margin: 22px 0 0;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 260ms, transform 0.55s ease-out 260ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const InlineLink = styled.a`
   color: inherit;
@@ -188,6 +228,18 @@ const Hobby = styled.li`
   letter-spacing: -0.01em;
   line-height: 1.35;
   color: ${cream};
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  &:nth-child(1) { transition-delay: 260ms; }
+  &:nth-child(2) { transition-delay: 310ms; }
+  &:nth-child(3) { transition-delay: 360ms; }
+  &:nth-child(4) { transition-delay: 410ms; }
+  &:nth-child(5) { transition-delay: 460ms; }
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
   &::before {
     content: "→";
     color: ${pink};
@@ -205,6 +257,13 @@ const Socials = styled.div`
   gap: 36px;
   margin-top: 40px;
   justify-content: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.55s ease-out 300ms, transform 0.55s ease-out 300ms;
+  .is-visible & {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `
 const SocialLink = styled.a`
   color: ${muted};
@@ -223,6 +282,7 @@ const TOTAL = 9
 const IndexPage = () => {
   const [active, setActive] = useState(0)
   const vpRef = useRef(null)
+  const slideRefs = useRef([])
 
   useEffect(() => {
     const el = vpRef.current
@@ -232,6 +292,28 @@ const IndexPage = () => {
     }
     el.addEventListener("scroll", handler, { passive: true })
     return () => el.removeEventListener("scroll", handler)
+  }, [])
+
+  useEffect(() => {
+    const root = vpRef.current
+    if (!root) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible")
+            // To re-trigger on scroll back: remove observer.unobserve and
+            // add `else { entry.target.classList.remove("is-visible") }`
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { root, threshold: 0.3 }
+    )
+
+    slideRefs.current.forEach(el => el && observer.observe(el))
+    return () => observer.disconnect()
   }, [])
 
   const goTo = i => {
@@ -261,7 +343,7 @@ const IndexPage = () => {
       <Viewport ref={vpRef}>
 
         {/* 0 — Hero */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[0] = el)}>
           <HeroName>
             Emily
             <br />
@@ -273,7 +355,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 1 — Klaviyo */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[1] = el)}>
           <AccentBar />
           <Category>senior software engineer</Category>
           <BigText>Klaviyo</BigText>
@@ -285,7 +367,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 2 — Nike */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[2] = el)}>
           <AccentBar />
           <Category>internship</Category>
           <BigText>Nike</BigText>
@@ -296,7 +378,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 2 — Appfolio */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[3] = el)}>
           <AccentBar />
           <Category>co-op</Category>
           <BigText>
@@ -311,7 +393,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 3 — Blueport */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[4] = el)}>
           <AccentBar />
           <Category>co-op</Category>
           <BigText>
@@ -325,7 +407,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 4 — Sandbox */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[5] = el)}>
           <AccentBar />
           <Category>student-led consultancy</Category>
           <BigText>
@@ -344,7 +426,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 5 — Vienna */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[6] = el)}>
           <AccentBar $yellow />
           <Category $yellow>study abroad</Category>
           <BigText>
@@ -366,7 +448,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 6 — Hobbies */}
-        <Slide>
+        <Slide ref={el => (slideRefs.current[7] = el)}>
           <AccentBar />
           <Category>outside the terminal</Category>
           <BigText>Life</BigText>
@@ -380,7 +462,7 @@ const IndexPage = () => {
         </Slide>
 
         {/* 7 — Contact */}
-        <CenterSlide>
+        <CenterSlide ref={el => (slideRefs.current[8] = el)}>
           <Category>let's connect</Category>
           <ContactBig>
             Get in
