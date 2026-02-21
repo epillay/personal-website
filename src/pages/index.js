@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect } from "react"
 import styled, { keyframes, createGlobalStyle } from "styled-components"
+import { Helmet } from "react-helmet"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faLinkedin, faGithub } from "@fortawesome/free-brands-svg-icons"
 import { faEnvelope } from "@fortawesome/free-solid-svg-icons"
 import Layout from "../components/v1/layout"
 
 // ─── Palette ────────────────────────────────────────────────────────────────
-const bg     = "#0A0906"
-const cream  = "#F0EAE1"
-const pink   = "#FF2D55"
-const yellow = "#EDDF5E"
-const muted  = "rgba(240, 234, 225, 0.28)"
+const bg     = "#F6F1EB"
+const cream  = "#18140E"
+const pink   = "#C4503A"
+const yellow = "#B8913C"
+const muted  = "rgba(24, 20, 14, 0.28)"
 
 // ─── Animations ─────────────────────────────────────────────────────────────
 const blink = keyframes`
@@ -163,13 +164,13 @@ const Body = styled.p`
   font-size: clamp(13px, 1.45vw, 16px);
   line-height: 1.8;
   max-width: 540px;
-  color: rgba(240, 234, 225, 0.6);
+  color: rgba(24, 20, 14, 0.6);
   margin: 22px 0 0;
 `
 const InlineLink = styled.a`
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px solid rgba(240, 234, 225, 0.2);
+  border-bottom: 1px solid rgba(24, 20, 14, 0.2);
   transition: border-color 0.2s;
   &:hover { border-color: ${pink}; }
 `
@@ -241,6 +242,9 @@ const IndexPage = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      </Helmet>
       <DarkGlobal />
 
       <NavDots aria-label="Page navigation">
