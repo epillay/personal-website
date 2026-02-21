@@ -6,7 +6,6 @@ module.exports = {
     siteUrl: `https://emilypillay.com`,
   },
   plugins: [
-    `gatsby-plugin-react-helmet`,
     {
       resolve: `gatsby-source-filesystem`,
       options: {
