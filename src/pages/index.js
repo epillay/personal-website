@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react"
 import styled, { keyframes, createGlobalStyle } from "styled-components"
-import { Helmet } from "react-helmet"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faLinkedin, faGithub } from "@fortawesome/free-brands-svg-icons"
 import { faEnvelope } from "@fortawesome/free-solid-svg-icons"
@@ -324,9 +323,6 @@ const IndexPage = () => {
 
   return (
     <Layout>
-      <Helmet>
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-      </Helmet>
       <DarkGlobal />
 
       <NavDots aria-label="Page navigation">
@@ -499,5 +495,9 @@ const IndexPage = () => {
     </Layout>
   )
 }
+
+export const Head = () => (
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+)
 
 export default IndexPage
