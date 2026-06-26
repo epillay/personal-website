@@ -2244,22 +2244,14 @@ function BudgetApp() {
   const [equity, setEquity] = useState("1100000");
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await window.storage.get("bgt6_setup");
-        setSetup(JSON.parse(r.value));
-      } catch {}
-      try {
-        const r = await window.storage.get("bgt6_exp");
-        setExp(JSON.parse(r.value));
-      } catch {}
-      setLoaded(true);
-    })();
+    try { const r = localStorage.getItem("bgt6_setup"); if (r) setSetup(JSON.parse(r)); } catch {}
+    try { const r2 = localStorage.getItem("bgt6_exp"); if (r2) setExp(JSON.parse(r2)); } catch {}
+    setLoaded(true);
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    window.storage.set("bgt6_setup", JSON.stringify(setup)).catch(() => {});
-    window.storage.set("bgt6_exp", JSON.stringify(expenses)).catch(() => {});
+    try { localStorage.setItem("bgt6_setup", JSON.stringify(setup)); } catch {}
+    try { localStorage.setItem("bgt6_exp", JSON.stringify(expenses)); } catch {}
   }, [setup, expenses, loaded]);
   const upd = (f, v) => setSetup(s => ({
     ...s,
