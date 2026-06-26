@@ -577,89 +577,143 @@ function WealthPanel({ ageBracket, setAgeBracket, equity, setEquity }) {
 function FireTab({ mySave, equity, setEquity }) {
   const [age,        setAge]        = useState("32");
   const [retireAge,  setRetireAge]  = useState("65");
+  const [lifeExp,    setLifeExp]    = useState("92");
   const [target,     setTarget]     = useState("100000");
-  const [withdrawal, setWithdrawal] = useState("4");
-  const [annReturn,  setAnnReturn]  = useState("7");
-  const [monthlySav, setMonthlySav] = useState(null); // null = use live budget value
+  const [withdrawal, setWithdrawal] = useState("3.9");
+  const [nomReturn,  setNomReturn]  = useState("7.0");
+  const [inflation,  setInflation]  = useState("3.0");
+  const [ssBenefit,  setSsBenefit]  = useState("0");
+  const [monthlySav, setMonthlySav] = useState(null);
 
-  const curAge   = Math.max(18, Math.min(80, num(age)));
-  const coastAge = Math.max(curAge+1, Math.min(85, num(retireAge)));
-  const nest     = num(equity);
-  const spend    = num(target);
-  const wr       = Math.max(0.5, Math.min(10, num(withdrawal))) / 100;
-  const r        = Math.max(0, Math.min(20, num(annReturn))) / 100;
-  const rMo      = Math.pow(1 + r, 1/12) - 1;
-  const saveMo   = monthlySav !== null ? num(monthlySav) : Math.max(0, mySave);
-  const fireNum  = spend / wr;
+  const curAge     = Math.max(18, Math.min(80,  num(age)));
+  const retAge     = Math.max(curAge + 1, Math.min(85, num(retireAge)));
+  const deathAge   = Math.max(retAge + 1, Math.min(110, num(lifeExp)));
+  const spend      = Math.max(0, num(target));
+  const wr         = Math.max(0.5, Math.min(10, num(withdrawal))) / 100;
+  const nomR       = Math.max(0, Math.min(25,  num(nomReturn)))  / 100;
+  const inf        = Math.max(0, Math.min(10,  num(inflation)))  / 100;
+  const realR      = Math.max(0, nomR - inf);
+  const realRPost  = Math.max(0, realR - 0.015);           // post-retire: ~1.5% lower (more bonds)
+  const rMoPre     = Math.pow(1 + realR, 1/12) - 1;
+  const rMoPost    = Math.pow(1 + realRPost, 1/12) - 1;
+  const ssMonthly  = Math.max(0, num(ssBenefit));
+  const ssAnnual   = ssMonthly * 12;
+  const ssStartAge = Math.max(retAge, 67);
+  const nest       = num(equity);
+  const saveMo     = monthlySav !== null ? num(monthlySav) : Math.max(0, mySave);
 
-  // Coast FIRE: amount needed today so it grows to fireNum by retireAge with no contributions
-  const coastNum = fireNum / Math.pow(1 + r, coastAge - curAge);
+  // All values in today's dollars (real returns). Portfolio draw at retirement:
+  const drawPreSS  = spend;                                 // before SS kicks in
+  const drawPostSS = Math.max(0, spend - ssAnnual);        // after SS at 67
+  const effectDraw = retAge >= 67 ? drawPostSS : drawPreSS;
+  const fireNumWithSS = effectDraw / wr;
+  const fireNumNoSS   = spend / wr;
 
-  // Project year-by-year until FIRE or 50 years
+  // Coast FIRE: today's portfolio that grows to fireNumWithSS by retAge with no contributions
+  const yearsToRetire = Math.max(0, retAge - curAge);
+  const coastNum      = yearsToRetire > 0 ? fireNumWithSS / Math.pow(1 + realR, yearsToRetire) : fireNumWithSS;
+  const coastDone     = nest >= coastNum;
+
+  // Project month-by-month: accumulation then distribution
+  const totalYears = deathAge - curAge + 5;
   const projection = [];
   let portfolio = nest;
-  let fireYear = null;
-  const maxYears = Math.max(50, coastAge - curAge + 10);
-  for (let mo = 0; mo <= maxYears * 12; mo++) {
+  let depletionAge = null;
+
+  for (let mo = 0; mo <= totalYears * 12; mo++) {
+    const projAge = curAge + mo / 12;
     if (mo % 12 === 0) {
-      const yr = mo / 12;
-      projection.push({ yr, age: curAge + yr, val: portfolio });
-      if (!fireYear && portfolio >= fireNum) fireYear = yr;
+      projection.push({ yr: mo/12, age: projAge, val: Math.max(0, portfolio),
+        phase: projAge < retAge ? "accum" : "distrib" });
     }
-    portfolio = portfolio * (1 + rMo) + saveMo;
+    if (projAge < retAge) {
+      portfolio = portfolio * (1 + rMoPre) + saveMo;
+    } else {
+      const draw = (projAge >= ssStartAge ? drawPostSS : drawPreSS) / 12;
+      const prev = portfolio;
+      portfolio  = Math.max(0, portfolio * (1 + rMoPost) - draw);
+      if (prev > 0 && portfolio <= 0 && !depletionAge) depletionAge = projAge;
+    }
   }
-  if (!fireYear && portfolio >= fireNum) fireYear = maxYears;
 
-  const fireAgeProjRaw = fireYear !== null ? curAge + fireYear : null;
-  const fireAgeProj    = fireAgeProjRaw !== null ? Math.round(fireAgeProjRaw * 10) / 10 : null;
-  const yearsLeft      = fireYear !== null ? Math.max(0, fireYear) : null;
-  const progress       = Math.min(100, (nest / fireNum) * 100);
-  const coastDone      = nest >= coastNum;
+  const portfolioAtRetirement = projection.find(p => Math.round(p.age) === retAge)?.val ?? 0;
+  const isFireReady  = portfolioAtRetirement >= fireNumWithSS;
+  const progress     = Math.min(100, fireNumWithSS > 0 ? (nest / fireNumWithSS) * 100 : 100);
 
-  // Scenarios (lean/target/fat)
+  // Scenarios
   const scenarios = [
     { label:"Lean FIRE",   spend:60000,  color:"#10B981" },
     { label:"Your Target", spend,        color:"#3B82F6", highlight:true },
     { label:"Fat FIRE",    spend:200000, color:"#F59E0B" },
   ].map(s => {
-    const fn = s.spend / wr;
-    let p2 = nest, yrs = null;
-    for (let mo = 0; mo <= 600; mo++) {
-      if (p2 >= fn) { yrs = mo / 12; break; }
-      p2 = p2 * (1 + rMo) + saveMo;
+    const sDraw = Math.max(0, s.spend - (retAge >= 67 ? ssAnnual : 0));
+    const fn    = sDraw / wr;
+    // Walk accumulation to find when portfolio first reaches fn
+    let p2 = nest, yrsHit = null;
+    for (let mo = 0; mo <= 60 * 12; mo++) {
+      const a2 = curAge + mo / 12;
+      if (a2 >= retAge && p2 >= fn) { yrsHit = mo / 12; break; }
+      if (a2 < retAge) p2 = p2 * (1 + rMoPre) + saveMo;
+      else p2 = Math.max(0, p2 * (1 + rMoPost) - Math.max(0, s.spend - (a2 >= ssStartAge ? ssAnnual : 0)) / 12);
     }
-    return { ...s, fireNum: fn, retireAge: yrs !== null ? Math.round((curAge + yrs) * 10)/10 : null, pct: Math.min(100, (nest/fn)*100) };
+    return { ...s, fireNum: fn, retireAge: yrsHit !== null ? Math.round((curAge + yrsHit) * 10)/10 : null,
+      pct: fn > 0 ? Math.min(100, (nest / fn) * 100) : 100 };
   });
 
-  // SVG chart data — yearly up to fireYear+5 or 40y
-  const chartYears  = Math.min(fireYear !== null ? fireYear + 6 : 40, 50);
-  const chartData   = projection.filter(p => p.yr <= chartYears);
-  const maxVal      = Math.max(fireNum * 1.1, chartData[chartData.length-1]?.val ?? fireNum);
-  const W = 860, H = 220, PL = 70, PR = 20, PT = 16, PB = 36;
-  const xS = yr => PL + (yr / chartYears) * (W - PL - PR);
-  const yS = v  => PT + (1 - v / maxVal) * (H - PT - PB);
+  // SVG — x axis by age, y axis real dollars
+  const maxAge   = deathAge + 2;
+  const accumPts = projection.filter(p => p.phase === "accum");
+  const distribPts = projection.filter(p => p.phase === "distrib" && p.val > 0);
+  const maxVal   = Math.max(fireNumWithSS * 1.15, portfolioAtRetirement * 1.1, nest * 1.5, 200000);
+  const W = 860, H = 230, PL = 72, PR = 20, PT = 16, PB = 38;
+  const xS = a  => PL + ((a - curAge) / Math.max(1, maxAge - curAge)) * (W - PL - PR);
+  const yS = v  => PT + (1 - Math.max(0, v) / maxVal) * (H - PT - PB);
+  const fireY    = yS(fireNumWithSS);
+  const coastY   = yS(coastNum);
+  const accumLine = accumPts.map(p => `${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ");
+  const distribLine = distribPts.map(p => `${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ");
+  const accumArea = accumPts.length >= 2
+    ? `M${xS(curAge)},${yS(0)} ` + accumPts.map(p=>`L${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ") + ` L${xS(retAge)},${yS(0)} Z`
+    : "";
+  const ageStep  = Math.ceil((maxAge - curAge) / 6);
+  const xTicks   = Array.from({length:7}, (_,i) => curAge + i * ageStep).filter(a => a <= maxAge);
+  const yTicks   = [0,.25,.5,.75,1].map(f => ({ v: maxVal*f, y: yS(maxVal*f) }));
 
-  const linePts = chartData.map(d => `${xS(d.yr)},${yS(d.val)}`).join(" ");
-  const areaPath = `M${xS(0)},${yS(0)} ` + chartData.map(d => `L${xS(d.yr)},${yS(d.val)}`).join(" ") + ` L${xS(chartData[chartData.length-1]?.yr ?? 0)},${yS(0)} Z`;
-  const fireY = yS(fireNum);
-  const xTicks = Array.from({length:6}, (_,i)=>Math.round(chartYears * i/5));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({ v: maxVal*f, y: yS(maxVal*f) }));
+  const inpStyle = { background:"#0B1120", border:"1px solid #374151", borderRadius:6,
+    padding:"5px 8px", color:"#F9FAFB", fontSize:13, outline:"none", fontVariantNumeric:"tabular-nums" };
 
-  const inpStyle = {
-    background:"#0B1120", border:"1px solid #374151", borderRadius:6,
-    padding:"5px 8px", color:"#F9FAFB", fontSize:13, outline:"none", width:90,
-    fontVariantNumeric:"tabular-nums",
-  };
+  const WR_PRESETS = [
+    { label:"3.3%", v:"3.3", desc:"Early FIRE (35+ yr)" },
+    { label:"3.9%", v:"3.9", desc:"Morningstar 2026" },
+    { label:"4.0%", v:"4.0", desc:"Trinity Study" },
+    { label:"5.2%", v:"5.2", desc:"Guardrails" },
+  ];
+
+  const shortfall = depletionAge && depletionAge < deathAge;
 
   return (
     <div>
       {/* Summary cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         {[
-          { l:"FIRE Number",        v:fmt(fireNum),       c:"#3B82F6", s:`${num(withdrawal)}% withdrawal rate` },
-          { l:"Current Progress",   v:`${progress.toFixed(1)}%`, c:progress>=100?"#10B981":"#F59E0B", s:`${fmt(nest)} of ${fmt(fireNum)}` },
-          { l:"Projected Ret. Age", v:fireAgeProj !== null ? String(Math.round(fireAgeProj)) : "50+ yrs", c:"#EC4899", s:yearsLeft !== null ? `in ~${Math.round(yearsLeft)} years` : "increase savings" },
-          { l:"Coast FIRE",         v:coastDone ? "✓ Done!" : fmt(coastNum), c:coastDone?"#10B981":"#8B5CF6", s:coastDone ? `Hit at current ${fmt(nest)}` : `${fmt(coastNum - nest)} to go (coast by ${coastAge})` },
+          { l:"FIRE Number",
+            v: fmt(fireNumWithSS),
+            c:"#3B82F6",
+            s: ssAnnual > 0 ? `SS reduces target by ${fmt(fireNumNoSS - fireNumWithSS)}` : `${num(withdrawal)}% withdrawal rate` },
+          { l:"Current Progress",
+            v:`${progress.toFixed(1)}%`,
+            c: progress >= 100 ? "#10B981" : "#F59E0B",
+            s:`${fmt(nest)} of ${fmt(fireNumWithSS)}` },
+          { l:`Portfolio at ${retAge}`,
+            v: fmt(portfolioAtRetirement),
+            c: isFireReady ? "#10B981" : "#F59E0B",
+            s: isFireReady ? "✓ FIRE-ready at target age" : `${fmt(Math.max(0, fireNumWithSS - portfolioAtRetirement))} short` },
+          { l: shortfall ? "Funds Run Out" : "Coast FIRE",
+            v: shortfall ? `Age ${Math.floor(depletionAge)}` : coastDone ? "✓ Done!" : fmt(coastNum),
+            c: shortfall ? "#EF4444" : coastDone ? "#10B981" : "#8B5CF6",
+            s: shortfall
+              ? `${Math.floor(deathAge - depletionAge)} yr shortfall vs life expectancy`
+              : coastDone ? `Locked in at ${fmt(nest)}` : `${fmt(coastNum - nest)} to go` },
         ].map(({l,v,c,s})=>(
           <div key={l} style={{background:"#111827",border:"1px solid #1F2937",borderRadius:10,padding:"12px 14px"}}>
             <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:4}}>{l}</div>
@@ -669,27 +723,31 @@ function FireTab({ mySave, equity, setEquity }) {
         ))}
       </div>
 
-      {/* Inputs */}
+      {/* Assumptions */}
       <Panel title="Assumptions" accent="#3B82F6">
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:0}}>
           {[
-            { label:"Current Age", value:age, set:setAge, prefix:"", suffix:" yrs", w:60 },
-            { label:"Coast-to Age", value:retireAge, set:setRetireAge, prefix:"", suffix:" yrs", w:60 },
-            { label:"Target Annual Spend", value:target, set:setTarget, prefix:"$", suffix:"", w:100 },
-            { label:"Withdrawal Rate", value:withdrawal, set:setWithdrawal, prefix:"", suffix:"%", w:60 },
-            { label:"Expected Annual Return", value:annReturn, set:setAnnReturn, prefix:"", suffix:"% real", w:60 },
-            { label:"Monthly Savings", value:monthlySav !== null ? String(monthlySav) : String(Math.round(mySave)),
+            { label:"Current Age",              value:age,       set:setAge,       prefix:"",  suffix:" yrs", w:55 },
+            { label:"Target Retirement Age",    value:retireAge, set:setRetireAge, prefix:"",  suffix:" yrs", w:55 },
+            { label:"Life Expectancy",          value:lifeExp,   set:setLifeExp,   prefix:"",  suffix:" yrs", w:55 },
+            { label:"Annual Spend (today's $)", value:target,    set:setTarget,    prefix:"$", suffix:"",     w:100 },
+            { label:"SS Benefit /mo at age 67",
+              value:ssBenefit, set:setSsBenefit, prefix:"$", suffix:"/mo", w:85,
+              note: ssAnnual > 0 ? `${fmt(ssAnnual)}/yr — lowers FIRE # by ${fmt(ssAnnual/wr)}` : "From your SSA statement — leave 0 to ignore" },
+            { label:"Monthly Savings",
+              value: monthlySav !== null ? String(monthlySav) : String(Math.round(mySave)),
               set:v=>setMonthlySav(v), prefix:"$", suffix:"/mo", w:90,
               note: monthlySav === null ? `Auto from budget: ${fmt(mySave)}/mo` : null,
               reset: monthlySav !== null ? ()=>setMonthlySav(null) : null },
+            { label:"Nominal Return (pre-retire)",  value:nomReturn,  set:setNomReturn,  prefix:"", suffix:"%", w:55 },
+            { label:"Inflation Rate",               value:inflation,  set:setInflation,  prefix:"", suffix:"%", w:55 },
           ].map(({label,value,set,prefix,suffix,w,note,reset})=>(
             <div key={label} style={{padding:"8px 0",borderBottom:"1px solid #1F2937",paddingRight:8}}>
               <div style={{fontSize:11,color:"#6B7280",marginBottom:4}}>{label}</div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
                   {prefix&&<span style={{padding:"0 2px 0 7px",color:"#6B7280",fontSize:12}}>{prefix}</span>}
-                  <input type="text" inputMode="decimal" value={value}
-                    onChange={e=>set(e.target.value)}
+                  <input type="text" inputMode="decimal" value={value} onChange={e=>set(e.target.value)}
                     style={{...inpStyle,width:w,border:"none",background:"transparent"}}/>
                   {suffix&&<span style={{padding:"0 7px 0 2px",color:"#6B7280",fontSize:12}}>{suffix}</span>}
                 </div>
@@ -698,74 +756,141 @@ function FireTab({ mySave, equity, setEquity }) {
               {note&&<div style={{fontSize:10,color:"#4B5563",marginTop:3}}>{note}</div>}
             </div>
           ))}
-        </div>
-        <div style={{marginTop:10,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:11,color:"#6B7280"}}>Current savings / equity:</span>
-          <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
-            <span style={{padding:"0 3px 0 7px",color:"#6B7280",fontSize:12}}>$</span>
-            <input type="text" inputMode="decimal" value={equity} onChange={e=>setEquity(e.target.value)}
-              style={{...inpStyle,width:110,border:"none",background:"transparent"}}/>
+
+          {/* Withdrawal rate with preset buttons — spans full row */}
+          <div style={{padding:"10px 0 8px",borderBottom:"1px solid #1F2937",gridColumn:"span 3"}}>
+            <div style={{fontSize:11,color:"#6B7280",marginBottom:6}}>Safe Withdrawal Rate</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              {WR_PRESETS.map(p=>(
+                <button key={p.v} onClick={()=>setWithdrawal(p.v)}
+                  style={{background:withdrawal===p.v?"#1E3A5F":"#1F2937",
+                    border:`1px solid ${withdrawal===p.v?"#3B82F6":"#374151"}`,
+                    borderRadius:6,padding:"5px 11px",cursor:"pointer",textAlign:"left"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:withdrawal===p.v?"#60A5FA":"#D1D5DB"}}>{p.label}</div>
+                  <div style={{fontSize:10,color:"#6B7280"}}>{p.desc}</div>
+                </button>
+              ))}
+              <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6,marginLeft:4}}>
+                <input type="text" inputMode="decimal" value={withdrawal} onChange={e=>setWithdrawal(e.target.value)}
+                  style={{...inpStyle,width:52,border:"none",background:"transparent"}}/>
+                <span style={{padding:"0 7px 0 0",color:"#6B7280",fontSize:12}}>%</span>
+              </div>
+            </div>
+            <div style={{marginTop:6,fontSize:10,color:"#4B5563",lineHeight:1.5}}>
+              Morningstar 2026: <strong style={{color:"#9CA3AF"}}>3.9%</strong> safe for 30-yr retirements (90% confidence, 40/60 portfolio).
+              Use <strong style={{color:"#9CA3AF"}}>3.3%</strong> for early FIRE with 35+ yr horizon.
+              <strong style={{color:"#9CA3AF"}}> 5.2%</strong> uses guardrails (flex spending — cut 10% if portfolio drops).
+            </div>
           </div>
-          <span style={{fontSize:11,color:"#4B5563"}}>← shared with Wealth tab</span>
+        </div>
+
+        {/* Return summary bar */}
+        <div style={{marginTop:10,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{background:"#0B1120",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#6B7280"}}>
+            Real pre-retire: <strong style={{color:"#10B981"}}>{(realR*100).toFixed(1)}%</strong>
+          </div>
+          <div style={{background:"#0B1120",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#6B7280"}}>
+            Post-retire: <strong style={{color:"#8B5CF6"}}>{(realRPost*100).toFixed(1)}%</strong> real (conservative allocation)
+          </div>
+          {ssAnnual > 0 && (
+            <div style={{background:"#0B1120",borderRadius:6,padding:"5px 10px",fontSize:11,color:"#6B7280"}}>
+              FIRE w/o SS: <strong style={{color:"#EC4899"}}>{fmt(fireNumNoSS)}</strong>
+              <span style={{color:"#F59E0B"}}> → {fmt(fireNumWithSS)} with SS</span>
+            </div>
+          )}
+          <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+            <span style={{fontSize:11,color:"#9CA3AF"}}>Current portfolio:</span>
+            <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
+              <span style={{padding:"0 3px 0 7px",color:"#6B7280",fontSize:12}}>$</span>
+              <input type="text" inputMode="decimal" value={equity} onChange={e=>setEquity(e.target.value)}
+                style={{...inpStyle,width:110,border:"none",background:"transparent"}}/>
+            </div>
+            <span style={{fontSize:10,color:"#4B5563"}}>← shared with Wealth tab</span>
+          </div>
         </div>
       </Panel>
 
-      {/* SVG Projection chart */}
-      <Panel title="Portfolio Projection" accent="#10B981">
+      {/* SVG Chart — accumulation + distribution */}
+      <Panel title="Portfolio Projection — Real (Today's) Dollars" accent="#10B981">
         <div style={{overflowX:"auto"}}>
           <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",minWidth:400,display:"block"}}>
             <defs>
-              <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#10B981" stopOpacity="0.3"/>
+              <linearGradient id="accumGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10B981" stopOpacity="0.25"/>
                 <stop offset="100%" stopColor="#10B981" stopOpacity="0.02"/>
               </linearGradient>
             </defs>
-            {/* Grid lines */}
+
             {yTicks.map(t=>(
               <g key={t.v}>
                 <line x1={PL} y1={t.y} x2={W-PR} y2={t.y} stroke="#1F2937" strokeWidth="1"/>
                 <text x={PL-6} y={t.y+4} textAnchor="end" fontSize="9" fill="#4B5563">
-                  {t.v>=1000000?`$${(t.v/1000000).toFixed(1)}M`:t.v>=1000?`$${Math.round(t.v/1000)}k`:"$0"}
+                  {t.v>=1e6?`$${(t.v/1e6).toFixed(1)}M`:t.v>=1000?`$${Math.round(t.v/1000)}k`:"$0"}
                 </text>
               </g>
             ))}
-            {/* X ticks */}
-            {xTicks.map(yr=>(
-              <g key={yr}>
-                <line x1={xS(yr)} y1={PT} x2={xS(yr)} y2={H-PB} stroke="#1F2937" strokeWidth="1"/>
-                <text x={xS(yr)} y={H-PB+14} textAnchor="middle" fontSize="9" fill="#4B5563">
-                  {`Age ${Math.round(curAge+yr)}`}
-                </text>
+            {xTicks.map(a=>(
+              <g key={a}>
+                <line x1={xS(a)} y1={PT} x2={xS(a)} y2={H-PB} stroke="#1F2937" strokeWidth="1"/>
+                <text x={xS(a)} y={H-PB+14} textAnchor="middle" fontSize="9" fill="#4B5563">Age {Math.round(a)}</text>
               </g>
             ))}
-            {/* FIRE threshold line */}
-            <line x1={PL} y1={fireY} x2={W-PR} y2={fireY} stroke="#EC4899" strokeWidth="1.5" strokeDasharray="6,3"/>
-            <text x={W-PR-2} y={fireY-5} textAnchor="end" fontSize="9" fill="#EC4899">FIRE: {fmt(fireNum)}</text>
-            {/* Coast FIRE line */}
-            {!coastDone && (
+
+            {/* Retirement divider */}
+            <line x1={xS(retAge)} y1={PT} x2={xS(retAge)} y2={H-PB} stroke="#374151" strokeWidth="1.5" strokeDasharray="4,3"/>
+            <text x={xS(retAge)+3} y={PT+10} fontSize="9" fill="#6B7280">Retire {retAge}</text>
+
+            {/* SS start annotation */}
+            {ssAnnual > 0 && ssStartAge > retAge && ssStartAge < maxAge && (
               <>
-                <line x1={PL} y1={yS(coastNum)} x2={W-PR} y2={yS(coastNum)} stroke="#8B5CF6" strokeWidth="1" strokeDasharray="3,3"/>
-                <text x={PL+4} y={yS(coastNum)-4} fontSize="9" fill="#8B5CF6">Coast: {fmt(coastNum)}</text>
+                <line x1={xS(ssStartAge)} y1={PT+16} x2={xS(ssStartAge)} y2={H-PB} stroke="#F59E0B44" strokeWidth="1" strokeDasharray="3,3"/>
+                <text x={xS(ssStartAge)+3} y={PT+26} fontSize="8" fill="#F59E0B">SS@67</text>
               </>
             )}
-            {/* Area fill */}
-            <path d={areaPath} fill="url(#portGrad)"/>
-            {/* Portfolio line */}
-            <polyline points={linePts} fill="none" stroke="#10B981" strokeWidth="2"/>
-            {/* FIRE crossover dot */}
-            {fireYear !== null && fireYear <= chartYears && (
-              <circle cx={xS(fireYear)} cy={yS(fireNum)} r="5" fill="#EC4899" stroke="#080E1A" strokeWidth="2"/>
+
+            {/* FIRE target line */}
+            <line x1={PL} y1={fireY} x2={W-PR} y2={fireY} stroke="#EC4899" strokeWidth="1.5" strokeDasharray="6,3"/>
+            <text x={W-PR-2} y={fireY-4} textAnchor="end" fontSize="9" fill="#EC4899">FIRE: {fmt(fireNumWithSS)}</text>
+
+            {/* Coast FIRE line (only during accumulation) */}
+            {!coastDone && (
+              <>
+                <line x1={PL} y1={coastY} x2={xS(retAge)} y2={coastY} stroke="#8B5CF6" strokeWidth="1" strokeDasharray="3,3"/>
+                <text x={PL+4} y={coastY-4} fontSize="9" fill="#8B5CF6">Coast: {fmt(coastNum)}</text>
+              </>
             )}
-            {/* Today marker */}
-            <circle cx={xS(0)} cy={yS(nest)} r="4" fill="#3B82F6" stroke="#080E1A" strokeWidth="2"/>
+
+            {/* Area under accumulation */}
+            {accumArea && <path d={accumArea} fill="url(#accumGrad)"/>}
+
+            {/* Lines */}
+            {accumLine && <polyline points={accumLine} fill="none" stroke="#10B981" strokeWidth="2.5"/>}
+            {distribLine && <polyline points={distribLine} fill="none" stroke="#8B5CF6" strokeWidth="2.5"/>}
+
+            {/* Depletion marker */}
+            {shortfall && depletionAge < maxAge && (
+              <>
+                <line x1={xS(depletionAge)} y1={PT} x2={xS(depletionAge)} y2={H-PB} stroke="#EF4444" strokeWidth="1.5"/>
+                <text x={xS(depletionAge)+2} y={PT+10} fontSize="9" fill="#EF4444">Depleted</text>
+              </>
+            )}
+
+            {/* Dots */}
+            <circle cx={xS(curAge)} cy={yS(nest)} r="4" fill="#3B82F6" stroke="#080E1A" strokeWidth="2"/>
+            {portfolioAtRetirement > 0 && (
+              <circle cx={xS(retAge)} cy={yS(portfolioAtRetirement)} r="5"
+                fill={isFireReady?"#10B981":"#F59E0B"} stroke="#080E1A" strokeWidth="2"/>
+            )}
           </svg>
         </div>
         <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
           {[
-            {c:"#10B981",l:"Your portfolio"},
-            {c:"#EC4899",l:`FIRE target (${fmt(fireNum)})`},
-            {c:"#8B5CF6",l:`Coast FIRE (${fmt(coastNum)})`},
-            {c:"#3B82F6",l:"Today"},
+            {c:"#10B981", l:"Accumulation (saving)"},
+            {c:"#8B5CF6", l:"Distribution (drawing down)"},
+            {c:"#EC4899", l:`FIRE target (${fmt(fireNumWithSS)})`},
+            {c:"#3B82F6", l:"Today"},
+            ...(ssAnnual>0&&ssStartAge>retAge?[{c:"#F59E0B",l:"SS starts at 67"}]:[]),
+            ...(shortfall?[{c:"#EF4444",l:`Portfolio depletes age ${Math.floor(depletionAge)}`}]:[]),
           ].map(({c,l})=>(
             <div key={l} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#6B7280"}}>
               <span style={{width:10,height:3,background:c,display:"inline-block",borderRadius:2}}/>
@@ -775,6 +900,30 @@ function FireTab({ mySave, equity, setEquity }) {
         </div>
       </Panel>
 
+      {/* SS Impact panel — only shown if SS entered */}
+      {ssAnnual > 0 && (
+        <Panel title="Social Security Impact" accent="#F59E0B">
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
+            {[
+              { l:"SS Annual Income",   v:fmt(ssAnnual),           c:"#F59E0B", s:`${fmt(ssMonthly)}/mo starting at ${ssStartAge}` },
+              { l:"FIRE # Without SS",  v:fmt(fireNumNoSS),        c:"#EC4899", s:`Based purely on ${num(withdrawal)}% of spend` },
+              { l:"FIRE # With SS",     v:fmt(fireNumWithSS),      c:"#10B981", s:`${fmt(fireNumNoSS-fireNumWithSS)} smaller target` },
+            ].map(({l,v,c,s})=>(
+              <div key={l} style={{background:"#0B1120",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",marginBottom:4}}>{l}</div>
+                <div style={{fontSize:17,fontWeight:800,color:c,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+                <div style={{fontSize:11,color:"#6B7280",marginTop:2}}>{s}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:"#6B7280",lineHeight:1.6}}>
+            SS covers <strong style={{color:"#F59E0B"}}>{spend>0?Math.min(100,Math.round(ssAnnual/spend*100)):0}%</strong> of retirement spend,
+            reducing the portfolio you need to self-fund by <strong style={{color:"#10B981"}}>{fmt(fireNumNoSS-fireNumWithSS)}</strong>.
+            Delaying SS from 62→70 increases your benefit ~77% — use your SSA.gov statement for your actual projected benefit.
+          </div>
+        </Panel>
+      )}
+
       {/* Scenarios */}
       <Panel title="FIRE Scenarios" accent="#F59E0B">
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
@@ -782,15 +931,20 @@ function FireTab({ mySave, equity, setEquity }) {
             <div key={s.label} style={{background:s.highlight?"#0F172A":"#0B1120",
               border:`1px solid ${s.highlight?"#3B82F6":"#1F2937"}`,borderRadius:10,padding:"12px 14px"}}>
               <div style={{fontSize:11,fontWeight:700,color:s.color,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>{s.label}</div>
-              <div style={{fontSize:11,color:"#6B7280",marginBottom:2}}>Annual spend</div>
-              <div style={{fontSize:16,fontWeight:800,color:"#F9FAFB",fontVariantNumeric:"tabular-nums",marginBottom:6}}>{fmt(s.spend)}/yr</div>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:2}}>Annual spend (today's $)</div>
+              <div style={{fontSize:15,fontWeight:800,color:"#F9FAFB",fontVariantNumeric:"tabular-nums",marginBottom:2}}>{fmt(s.spend)}/yr</div>
+              {ssAnnual > 0 && (
+                <div style={{fontSize:10,color:"#F59E0B",marginBottom:6}}>
+                  SS covers {fmt(Math.min(ssAnnual,s.spend))} → need {fmt(Math.max(0,s.spend-ssAnnual))} from portfolio
+                </div>
+              )}
               <div style={{fontSize:11,color:"#6B7280",marginBottom:2}}>FIRE number</div>
               <div style={{fontSize:14,fontWeight:700,color:s.color,fontVariantNumeric:"tabular-nums",marginBottom:8}}>{fmt(s.fireNum)}</div>
               <div style={{marginBottom:8}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#6B7280",marginBottom:3}}>
                   <span>Progress</span><span>{s.pct.toFixed(1)}%</span>
                 </div>
-                <ProgBar value={nest} max={s.fireNum} color={s.color} height={5}/>
+                <ProgBar value={nest} max={Math.max(1, s.fireNum)} color={s.color} height={5}/>
               </div>
               <div style={{fontSize:12,fontWeight:700,color:s.retireAge !== null ? s.color : "#EF4444"}}>
                 {s.retireAge !== null ? `Retire at ${Math.round(s.retireAge)}` : "50+ years away"}
@@ -800,47 +954,66 @@ function FireTab({ mySave, equity, setEquity }) {
         </div>
       </Panel>
 
-      {/* Milestones table */}
+      {/* Year-by-year table */}
       <Panel title="Year-by-Year Milestones" accent="#6366F1">
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead>
               <tr>
-                {["Year","Age","Portfolio Value","Progress to FIRE","Monthly Interest Earned"].map(h=>(
-                  <th key={h} style={{textAlign:"left",padding:"6px 8px",borderBottom:"1px solid #374151",color:"#6B7280",fontWeight:600,fontSize:11}}>{h}</th>
+                {["Year","Age","Phase","Portfolio (today's $)","Progress to FIRE","Monthly Return"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"6px 8px",borderBottom:"1px solid #374151",
+                    color:"#6B7280",fontWeight:600,fontSize:11}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {projection.filter((_,i)=>i%1===0).slice(0, fireYear !== null ? Math.ceil(fireYear)+2 : 30).map(d=>{
-                const isFire = d.val >= fireNum && (projection[projection.indexOf(d)-1]?.val ?? 0) < fireNum || Math.abs(d.age - (curAge + (fireYear??0))) < 0.6;
-                const monthlyInterest = d.val * rMo;
+              {projection.slice(0, Math.min(projection.length, deathAge - curAge + 2)).map((d,i) => {
+                const isRetireRow = Math.round(d.age) === retAge && d.phase === "distrib";
+                const prev = projection[i-1];
+                const isCross = prev && prev.val < fireNumWithSS && d.val >= fireNumWithSS;
+                const ssActive = d.age >= ssStartAge && d.phase === "distrib";
+                const monthlyReturn = d.val * (d.phase === "accum" ? rMoPre : rMoPost);
                 return (
-                  <tr key={d.yr} style={{background:isFire?"#0F2B1A":d.yr%2===0?"#0B1120":"transparent",
-                    borderLeft:isFire?"3px solid #10B981":"3px solid transparent"}}>
+                  <tr key={d.yr} style={{
+                    background: isCross?"#0F2B1A":isRetireRow?"#0F1F3A":d.yr%2===0?"#0B1120":"transparent",
+                    borderLeft: isCross?"3px solid #10B981":isRetireRow?"3px solid #8B5CF6":"3px solid transparent",
+                  }}>
                     <td style={{padding:"5px 8px",color:"#6B7280"}}>{new Date().getFullYear()+d.yr}</td>
-                    <td style={{padding:"5px 8px",color:"#F9FAFB",fontWeight:d.val>=fireNum?700:400}}>{Math.round(d.age)}</td>
-                    <td style={{padding:"5px 8px",color:d.val>=fireNum?"#10B981":"#F9FAFB",fontVariantNumeric:"tabular-nums",fontWeight:d.val>=fireNum?700:400}}>{fmt(d.val)}</td>
+                    <td style={{padding:"5px 8px",color:"#F9FAFB",fontWeight:isRetireRow||isCross?700:400}}>{Math.round(d.age)}</td>
+                    <td style={{padding:"5px 8px"}}>
+                      <span style={{fontSize:10,borderRadius:4,padding:"2px 6px",
+                        color:d.phase==="accum"?"#10B981":ssActive?"#F59E0B":"#8B5CF6",
+                        background:d.phase==="accum"?"#10B98120":ssActive?"#F59E0B20":"#8B5CF620"}}>
+                        {d.phase==="accum" ? "Saving" : ssActive ? "Spending + SS" : "Spending"}
+                      </span>
+                    </td>
+                    <td style={{padding:"5px 8px",color:d.val>=fireNumWithSS?"#10B981":d.val<=0?"#EF4444":"#F9FAFB",
+                      fontVariantNumeric:"tabular-nums",fontWeight:isCross?700:400}}>{fmt(d.val)}</td>
                     <td style={{padding:"5px 8px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         <div style={{flex:1,height:4,background:"#1F2937",borderRadius:2,overflow:"hidden",minWidth:60}}>
-                          <div style={{height:"100%",width:`${Math.min(100,(d.val/fireNum)*100)}%`,background:d.val>=fireNum?"#10B981":"#3B82F6",borderRadius:2}}/>
+                          <div style={{height:"100%",
+                            width:`${Math.min(100,fireNumWithSS>0?(d.val/fireNumWithSS)*100:100)}%`,
+                            background:d.val>=fireNumWithSS?"#10B981":"#3B82F6",borderRadius:2}}/>
                         </div>
-                        <span style={{color:d.val>=fireNum?"#10B981":"#6B7280",fontSize:11,minWidth:36}}>{Math.min(100,(d.val/fireNum)*100).toFixed(0)}%{d.val>=fireNum?" 🎉":""}</span>
+                        <span style={{color:d.val>=fireNumWithSS?"#10B981":"#6B7280",fontSize:11,minWidth:38}}>
+                          {Math.min(100,fireNumWithSS>0?Math.round((d.val/fireNumWithSS)*100):100)}%
+                          {isCross?" 🎉":""}
+                        </span>
                       </div>
                     </td>
-                    <td style={{padding:"5px 8px",color:"#8B5CF6",fontVariantNumeric:"tabular-nums"}}>{fmt(monthlyInterest)}/mo</td>
+                    <td style={{padding:"5px 8px",color:"#8B5CF6",fontVariantNumeric:"tabular-nums"}}>{fmt(monthlyReturn)}/mo</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
-        <Note>Monthly interest = portfolio × monthly return rate. Once this exceeds your expenses, you've hit FIRE regardless of principal.</Note>
+        <Note>All values in today's dollars (real returns). Pre-retire: {(realR*100).toFixed(1)}% real · Post-retire: {(realRPost*100).toFixed(1)}% real (conservative shift). Monthly return = portfolio × real monthly rate.</Note>
       </Panel>
 
       <div style={{background:"#0B1120",border:"1px solid #1F2937",borderRadius:8,padding:"10px 14px",fontSize:11,color:"#6B7280",lineHeight:1.7}}>
-        <strong style={{color:"#9CA3AF"}}>Assumptions:</strong> Returns are real (inflation-adjusted). {num(annReturn)}% annual return assumes a diversified index portfolio. The {num(withdrawal)}% safe withdrawal rate (SWR) is based on the Trinity Study — historically {num(withdrawal)<=3.5?"very conservative":"reasonable"} for 30-year retirements. Coast FIRE = the nest egg that grows to your FIRE number by age {coastAge} with zero additional contributions.
+        <strong style={{color:"#9CA3AF"}}>Methodology:</strong> All projections in today's dollars using real returns ({num(nomReturn)}% nominal − {num(inflation)}% inflation = {(realR*100).toFixed(1)}% real pre-retire). Post-retirement uses {(realRPost*100).toFixed(1)}% real return (portfolio shifts toward bonds/conservative). {num(withdrawal)}% SWR: {num(withdrawal)<=3.4?"conservative for early retirees (35+ yr horizon)":num(withdrawal)<=3.95?"Morningstar 2026 research — 90% confidence over 30 yr":num(withdrawal)<=4.05?"Trinity Study — 95% historical success over 30 yr":"guardrails strategy — requires flex spending (cut 10% if portfolio drops 20%)"}. SS benefit assumed COLA-adjusted (real purchasing power maintained).
       </div>
     </div>
   );

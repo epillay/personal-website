@@ -305,7 +305,9 @@ var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=bj;null!==c&&void 0!==c&&(!0=
 function(a,b,c){if(!Vd(b))throw Error(n(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(n(40));return a._reactRootContainer?(zb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(n(200));if(null==a||void 0===a._reactInternals)throw Error(n(38));return Wd(a,b,c,!1,d)};Q.version="18.2.0-next-9e3b772b8-20220608"});
 })();
 </script>
-<script>const {
+<script>"use strict";
+
+const {
   useState,
   useEffect,
   useRef
@@ -1566,49 +1568,71 @@ function FireTab({
 }) {
   const [age, setAge] = useState("32");
   const [retireAge, setRetireAge] = useState("65");
+  const [lifeExp, setLifeExp] = useState("92");
   const [target, setTarget] = useState("100000");
-  const [withdrawal, setWithdrawal] = useState("4");
-  const [annReturn, setAnnReturn] = useState("7");
-  const [monthlySav, setMonthlySav] = useState(null); // null = use live budget value
-
+  const [withdrawal, setWithdrawal] = useState("3.9");
+  const [nomReturn, setNomReturn] = useState("7.0");
+  const [inflation, setInflation] = useState("3.0");
+  const [ssBenefit, setSsBenefit] = useState("0");
+  const [monthlySav, setMonthlySav] = useState(null);
   const curAge = Math.max(18, Math.min(80, num(age)));
-  const coastAge = Math.max(curAge + 1, Math.min(85, num(retireAge)));
-  const nest = num(equity);
-  const spend = num(target);
+  const retAge = Math.max(curAge + 1, Math.min(85, num(retireAge)));
+  const deathAge = Math.max(retAge + 1, Math.min(110, num(lifeExp)));
+  const spend = Math.max(0, num(target));
   const wr = Math.max(0.5, Math.min(10, num(withdrawal))) / 100;
-  const r = Math.max(0, Math.min(20, num(annReturn))) / 100;
-  const rMo = Math.pow(1 + r, 1 / 12) - 1;
+  const nomR = Math.max(0, Math.min(25, num(nomReturn))) / 100;
+  const inf = Math.max(0, Math.min(10, num(inflation))) / 100;
+  const realR = Math.max(0, nomR - inf);
+  const realRPost = Math.max(0, realR - 0.015); // post-retire: ~1.5% lower (more bonds)
+  const rMoPre = Math.pow(1 + realR, 1 / 12) - 1;
+  const rMoPost = Math.pow(1 + realRPost, 1 / 12) - 1;
+  const ssMonthly = Math.max(0, num(ssBenefit));
+  const ssAnnual = ssMonthly * 12;
+  const ssStartAge = Math.max(retAge, 67);
+  const nest = num(equity);
   const saveMo = monthlySav !== null ? num(monthlySav) : Math.max(0, mySave);
-  const fireNum = spend / wr;
 
-  // Coast FIRE: amount needed today so it grows to fireNum by retireAge with no contributions
-  const coastNum = fireNum / Math.pow(1 + r, coastAge - curAge);
+  // All values in today's dollars (real returns). Portfolio draw at retirement:
+  const drawPreSS = spend; // before SS kicks in
+  const drawPostSS = Math.max(0, spend - ssAnnual); // after SS at 67
+  const effectDraw = retAge >= 67 ? drawPostSS : drawPreSS;
+  const fireNumWithSS = effectDraw / wr;
+  const fireNumNoSS = spend / wr;
 
-  // Project year-by-year until FIRE or 50 years
-  const projection = [];
-  let portfolio = nest;
-  let fireYear = null;
-  const maxYears = Math.max(50, coastAge - curAge + 10);
-  for (let mo = 0; mo <= maxYears * 12; mo++) {
-    if (mo % 12 === 0) {
-      const yr = mo / 12;
-      projection.push({
-        yr,
-        age: curAge + yr,
-        val: portfolio
-      });
-      if (!fireYear && portfolio >= fireNum) fireYear = yr;
-    }
-    portfolio = portfolio * (1 + rMo) + saveMo;
-  }
-  if (!fireYear && portfolio >= fireNum) fireYear = maxYears;
-  const fireAgeProjRaw = fireYear !== null ? curAge + fireYear : null;
-  const fireAgeProj = fireAgeProjRaw !== null ? Math.round(fireAgeProjRaw * 10) / 10 : null;
-  const yearsLeft = fireYear !== null ? Math.max(0, fireYear) : null;
-  const progress = Math.min(100, nest / fireNum * 100);
+  // Coast FIRE: today's portfolio that grows to fireNumWithSS by retAge with no contributions
+  const yearsToRetire = Math.max(0, retAge - curAge);
+  const coastNum = yearsToRetire > 0 ? fireNumWithSS / Math.pow(1 + realR, yearsToRetire) : fireNumWithSS;
   const coastDone = nest >= coastNum;
 
-  // Scenarios (lean/target/fat)
+  // Project month-by-month: accumulation then distribution
+  const totalYears = deathAge - curAge + 5;
+  const projection = [];
+  let portfolio = nest;
+  let depletionAge = null;
+  for (let mo = 0; mo <= totalYears * 12; mo++) {
+    const projAge = curAge + mo / 12;
+    if (mo % 12 === 0) {
+      projection.push({
+        yr: mo / 12,
+        age: projAge,
+        val: Math.max(0, portfolio),
+        phase: projAge < retAge ? "accum" : "distrib"
+      });
+    }
+    if (projAge < retAge) {
+      portfolio = portfolio * (1 + rMoPre) + saveMo;
+    } else {
+      const draw = (projAge >= ssStartAge ? drawPostSS : drawPreSS) / 12;
+      const prev = portfolio;
+      portfolio = Math.max(0, portfolio * (1 + rMoPost) - draw);
+      if (prev > 0 && portfolio <= 0 && !depletionAge) depletionAge = projAge;
+    }
+  }
+  const portfolioAtRetirement = projection.find(p => Math.round(p.age) === retAge)?.val ?? 0;
+  const isFireReady = portfolioAtRetirement >= fireNumWithSS;
+  const progress = Math.min(100, fireNumWithSS > 0 ? nest / fireNumWithSS * 100 : 100);
+
+  // Scenarios
   const scenarios = [{
     label: "Lean FIRE",
     spend: 60000,
@@ -1623,43 +1647,50 @@ function FireTab({
     spend: 200000,
     color: "#F59E0B"
   }].map(s => {
-    const fn = s.spend / wr;
+    const sDraw = Math.max(0, s.spend - (retAge >= 67 ? ssAnnual : 0));
+    const fn = sDraw / wr;
+    // Walk accumulation to find when portfolio first reaches fn
     let p2 = nest,
-      yrs = null;
-    for (let mo = 0; mo <= 600; mo++) {
-      if (p2 >= fn) {
-        yrs = mo / 12;
+      yrsHit = null;
+    for (let mo = 0; mo <= 60 * 12; mo++) {
+      const a2 = curAge + mo / 12;
+      if (a2 >= retAge && p2 >= fn) {
+        yrsHit = mo / 12;
         break;
       }
-      p2 = p2 * (1 + rMo) + saveMo;
+      if (a2 < retAge) p2 = p2 * (1 + rMoPre) + saveMo;else p2 = Math.max(0, p2 * (1 + rMoPost) - Math.max(0, s.spend - (a2 >= ssStartAge ? ssAnnual : 0)) / 12);
     }
     return {
       ...s,
       fireNum: fn,
-      retireAge: yrs !== null ? Math.round((curAge + yrs) * 10) / 10 : null,
-      pct: Math.min(100, nest / fn * 100)
+      retireAge: yrsHit !== null ? Math.round((curAge + yrsHit) * 10) / 10 : null,
+      pct: fn > 0 ? Math.min(100, nest / fn * 100) : 100
     };
   });
 
-  // SVG chart data — yearly up to fireYear+5 or 40y
-  const chartYears = Math.min(fireYear !== null ? fireYear + 6 : 40, 50);
-  const chartData = projection.filter(p => p.yr <= chartYears);
-  const maxVal = Math.max(fireNum * 1.1, chartData[chartData.length - 1]?.val ?? fireNum);
+  // SVG — x axis by age, y axis real dollars
+  const maxAge = deathAge + 2;
+  const accumPts = projection.filter(p => p.phase === "accum");
+  const distribPts = projection.filter(p => p.phase === "distrib" && p.val > 0);
+  const maxVal = Math.max(fireNumWithSS * 1.15, portfolioAtRetirement * 1.1, nest * 1.5, 200000);
   const W = 860,
-    H = 220,
-    PL = 70,
+    H = 230,
+    PL = 72,
     PR = 20,
     PT = 16,
-    PB = 36;
-  const xS = yr => PL + yr / chartYears * (W - PL - PR);
-  const yS = v => PT + (1 - v / maxVal) * (H - PT - PB);
-  const linePts = chartData.map(d => `${xS(d.yr)},${yS(d.val)}`).join(" ");
-  const areaPath = `M${xS(0)},${yS(0)} ` + chartData.map(d => `L${xS(d.yr)},${yS(d.val)}`).join(" ") + ` L${xS(chartData[chartData.length - 1]?.yr ?? 0)},${yS(0)} Z`;
-  const fireY = yS(fireNum);
+    PB = 38;
+  const xS = a => PL + (a - curAge) / Math.max(1, maxAge - curAge) * (W - PL - PR);
+  const yS = v => PT + (1 - Math.max(0, v) / maxVal) * (H - PT - PB);
+  const fireY = yS(fireNumWithSS);
+  const coastY = yS(coastNum);
+  const accumLine = accumPts.map(p => `${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ");
+  const distribLine = distribPts.map(p => `${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ");
+  const accumArea = accumPts.length >= 2 ? `M${xS(curAge)},${yS(0)} ` + accumPts.map(p => `L${xS(p.age).toFixed(1)},${yS(p.val).toFixed(1)}`).join(" ") + ` L${xS(retAge)},${yS(0)} Z` : "";
+  const ageStep = Math.ceil((maxAge - curAge) / 6);
   const xTicks = Array.from({
-    length: 6
-  }, (_, i) => Math.round(chartYears * i / 5));
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({
+    length: 7
+  }, (_, i) => curAge + i * ageStep).filter(a => a <= maxAge);
+  const yTicks = [0, .25, .5, .75, 1].map(f => ({
     v: maxVal * f,
     y: yS(maxVal * f)
   }));
@@ -1671,9 +1702,26 @@ function FireTab({
     color: "#F9FAFB",
     fontSize: 13,
     outline: "none",
-    width: 90,
     fontVariantNumeric: "tabular-nums"
   };
+  const WR_PRESETS = [{
+    label: "3.3%",
+    v: "3.3",
+    desc: "Early FIRE (35+ yr)"
+  }, {
+    label: "3.9%",
+    v: "3.9",
+    desc: "Morningstar 2026"
+  }, {
+    label: "4.0%",
+    v: "4.0",
+    desc: "Trinity Study"
+  }, {
+    label: "5.2%",
+    v: "5.2",
+    desc: "Guardrails"
+  }];
+  const shortfall = depletionAge && depletionAge < deathAge;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -1683,24 +1731,24 @@ function FireTab({
     }
   }, [{
     l: "FIRE Number",
-    v: fmt(fireNum),
+    v: fmt(fireNumWithSS),
     c: "#3B82F6",
-    s: `${num(withdrawal)}% withdrawal rate`
+    s: ssAnnual > 0 ? `SS reduces target by ${fmt(fireNumNoSS - fireNumWithSS)}` : `${num(withdrawal)}% withdrawal rate`
   }, {
     l: "Current Progress",
     v: `${progress.toFixed(1)}%`,
     c: progress >= 100 ? "#10B981" : "#F59E0B",
-    s: `${fmt(nest)} of ${fmt(fireNum)}`
+    s: `${fmt(nest)} of ${fmt(fireNumWithSS)}`
   }, {
-    l: "Projected Ret. Age",
-    v: fireAgeProj !== null ? String(Math.round(fireAgeProj)) : "50+ yrs",
-    c: "#EC4899",
-    s: yearsLeft !== null ? `in ~${Math.round(yearsLeft)} years` : "increase savings"
+    l: `Portfolio at ${retAge}`,
+    v: fmt(portfolioAtRetirement),
+    c: isFireReady ? "#10B981" : "#F59E0B",
+    s: isFireReady ? "✓ FIRE-ready at target age" : `${fmt(Math.max(0, fireNumWithSS - portfolioAtRetirement))} short`
   }, {
-    l: "Coast FIRE",
-    v: coastDone ? "✓ Done!" : fmt(coastNum),
-    c: coastDone ? "#10B981" : "#8B5CF6",
-    s: coastDone ? `Hit at current ${fmt(nest)}` : `${fmt(coastNum - nest)} to go (coast by ${coastAge})`
+    l: shortfall ? "Funds Run Out" : "Coast FIRE",
+    v: shortfall ? `Age ${Math.floor(depletionAge)}` : coastDone ? "✓ Done!" : fmt(coastNum),
+    c: shortfall ? "#EF4444" : coastDone ? "#10B981" : "#8B5CF6",
+    s: shortfall ? `${Math.floor(deathAge - depletionAge)} yr shortfall vs life expectancy` : coastDone ? `Locked in at ${fmt(nest)}` : `${fmt(coastNum - nest)} to go`
   }].map(({
     l,
     v,
@@ -1752,35 +1800,36 @@ function FireTab({
     set: setAge,
     prefix: "",
     suffix: " yrs",
-    w: 60
+    w: 55
   }, {
-    label: "Coast-to Age",
+    label: "Target Retirement Age",
     value: retireAge,
     set: setRetireAge,
     prefix: "",
     suffix: " yrs",
-    w: 60
+    w: 55
   }, {
-    label: "Target Annual Spend",
+    label: "Life Expectancy",
+    value: lifeExp,
+    set: setLifeExp,
+    prefix: "",
+    suffix: " yrs",
+    w: 55
+  }, {
+    label: "Annual Spend (today's $)",
     value: target,
     set: setTarget,
     prefix: "$",
     suffix: "",
     w: 100
   }, {
-    label: "Withdrawal Rate",
-    value: withdrawal,
-    set: setWithdrawal,
-    prefix: "",
-    suffix: "%",
-    w: 60
-  }, {
-    label: "Expected Annual Return",
-    value: annReturn,
-    set: setAnnReturn,
-    prefix: "",
-    suffix: "% real",
-    w: 60
+    label: "SS Benefit /mo at age 67",
+    value: ssBenefit,
+    set: setSsBenefit,
+    prefix: "$",
+    suffix: "/mo",
+    w: 85,
+    note: ssAnnual > 0 ? `${fmt(ssAnnual)}/yr — lowers FIRE # by ${fmt(ssAnnual / wr)}` : "From your SSA statement — leave 0 to ignore"
   }, {
     label: "Monthly Savings",
     value: monthlySav !== null ? String(monthlySav) : String(Math.round(mySave)),
@@ -1790,6 +1839,20 @@ function FireTab({
     w: 90,
     note: monthlySav === null ? `Auto from budget: ${fmt(mySave)}/mo` : null,
     reset: monthlySav !== null ? () => setMonthlySav(null) : null
+  }, {
+    label: "Nominal Return (pre-retire)",
+    value: nomReturn,
+    set: setNomReturn,
+    prefix: "",
+    suffix: "%",
+    w: 55
+  }, {
+    label: "Inflation Rate",
+    value: inflation,
+    set: setInflation,
+    prefix: "",
+    suffix: "%",
+    w: 55
   }].map(({
     label,
     value,
@@ -1865,19 +1928,153 @@ function FireTab({
       color: "#4B5563",
       marginTop: 3
     }
-  }, note)))), /*#__PURE__*/React.createElement("div", {
+  }, note))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "10px 0 8px",
+      borderBottom: "1px solid #1F2937",
+      gridColumn: "span 3"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6B7280",
+      marginBottom: 6
+    }
+  }, "Safe Withdrawal Rate"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap"
+    }
+  }, WR_PRESETS.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.v,
+    onClick: () => setWithdrawal(p.v),
+    style: {
+      background: withdrawal === p.v ? "#1E3A5F" : "#1F2937",
+      border: `1px solid ${withdrawal === p.v ? "#3B82F6" : "#374151"}`,
+      borderRadius: 6,
+      padding: "5px 11px",
+      cursor: "pointer",
+      textAlign: "left"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: withdrawal === p.v ? "#60A5FA" : "#D1D5DB"
+    }
+  }, p.label), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#6B7280"
+    }
+  }, p.desc))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      background: "#0B1120",
+      border: "1px solid #374151",
+      borderRadius: 6,
+      marginLeft: 4
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    inputMode: "decimal",
+    value: withdrawal,
+    onChange: e => setWithdrawal(e.target.value),
+    style: {
+      ...inpStyle,
+      width: 52,
+      border: "none",
+      background: "transparent"
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      padding: "0 7px 0 0",
+      color: "#6B7280",
+      fontSize: 12
+    }
+  }, "%"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontSize: 10,
+      color: "#4B5563",
+      lineHeight: 1.5
+    }
+  }, "Morningstar 2026: ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#9CA3AF"
+    }
+  }, "3.9%"), " safe for 30-yr retirements (90% confidence, 40/60 portfolio). Use ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#9CA3AF"
+    }
+  }, "3.3%"), " for early FIRE with 35+ yr horizon.", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#9CA3AF"
+    }
+  }, " 5.2%"), " uses guardrails (flex spending \u2014 cut 10% if portfolio drops)."))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       display: "flex",
+      gap: 10,
+      flexWrap: "wrap",
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0B1120",
+      borderRadius: 6,
+      padding: "5px 10px",
+      fontSize: 11,
+      color: "#6B7280"
+    }
+  }, "Real pre-retire: ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#10B981"
+    }
+  }, (realR * 100).toFixed(1), "%")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0B1120",
+      borderRadius: 6,
+      padding: "5px 10px",
+      fontSize: 11,
+      color: "#6B7280"
+    }
+  }, "Post-retire: ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#8B5CF6"
+    }
+  }, (realRPost * 100).toFixed(1), "%"), " real (conservative allocation)"), ssAnnual > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#0B1120",
+      borderRadius: 6,
+      padding: "5px 10px",
+      fontSize: 11,
+      color: "#6B7280"
+    }
+  }, "FIRE w/o SS: ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#EC4899"
+    }
+  }, fmt(fireNumNoSS)), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: "#F59E0B"
+    }
+  }, " \u2192 ", fmt(fireNumWithSS), " with SS")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
       alignItems: "center",
-      gap: 10
+      gap: 8,
+      marginLeft: "auto"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
-      color: "#6B7280"
+      color: "#9CA3AF"
     }
-  }, "Current savings / equity:"), /*#__PURE__*/React.createElement("div", {
+  }, "Current portfolio:"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -1904,11 +2101,11 @@ function FireTab({
     }
   })), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 11,
+      fontSize: 10,
       color: "#4B5563"
     }
-  }, "\u2190 shared with Wealth tab"))), /*#__PURE__*/React.createElement(Panel, {
-    title: "Portfolio Projection",
+  }, "\u2190 shared with Wealth tab")))), /*#__PURE__*/React.createElement(Panel, {
+    title: "Portfolio Projection \u2014 Real (Today's) Dollars",
     accent: "#10B981"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1922,7 +2119,7 @@ function FireTab({
       display: "block"
     }
   }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-    id: "portGrad",
+    id: "accumGrad",
     x1: "0",
     y1: "0",
     x2: "0",
@@ -1930,7 +2127,7 @@ function FireTab({
   }, /*#__PURE__*/React.createElement("stop", {
     offset: "0%",
     stopColor: "#10B981",
-    stopOpacity: "0.3"
+    stopOpacity: "0.25"
   }), /*#__PURE__*/React.createElement("stop", {
     offset: "100%",
     stopColor: "#10B981",
@@ -1950,22 +2147,48 @@ function FireTab({
     textAnchor: "end",
     fontSize: "9",
     fill: "#4B5563"
-  }, t.v >= 1000000 ? `$${(t.v / 1000000).toFixed(1)}M` : t.v >= 1000 ? `$${Math.round(t.v / 1000)}k` : "$0"))), xTicks.map(yr => /*#__PURE__*/React.createElement("g", {
-    key: yr
+  }, t.v >= 1e6 ? `$${(t.v / 1e6).toFixed(1)}M` : t.v >= 1000 ? `$${Math.round(t.v / 1000)}k` : "$0"))), xTicks.map(a => /*#__PURE__*/React.createElement("g", {
+    key: a
   }, /*#__PURE__*/React.createElement("line", {
-    x1: xS(yr),
+    x1: xS(a),
     y1: PT,
-    x2: xS(yr),
+    x2: xS(a),
     y2: H - PB,
     stroke: "#1F2937",
     strokeWidth: "1"
   }), /*#__PURE__*/React.createElement("text", {
-    x: xS(yr),
+    x: xS(a),
     y: H - PB + 14,
     textAnchor: "middle",
     fontSize: "9",
     fill: "#4B5563"
-  }, `Age ${Math.round(curAge + yr)}`))), /*#__PURE__*/React.createElement("line", {
+  }, "Age ", Math.round(a)))), /*#__PURE__*/React.createElement("line", {
+    x1: xS(retAge),
+    y1: PT,
+    x2: xS(retAge),
+    y2: H - PB,
+    stroke: "#374151",
+    strokeWidth: "1.5",
+    strokeDasharray: "4,3"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: xS(retAge) + 3,
+    y: PT + 10,
+    fontSize: "9",
+    fill: "#6B7280"
+  }, "Retire ", retAge), ssAnnual > 0 && ssStartAge > retAge && ssStartAge < maxAge && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: xS(ssStartAge),
+    y1: PT + 16,
+    x2: xS(ssStartAge),
+    y2: H - PB,
+    stroke: "#F59E0B44",
+    strokeWidth: "1",
+    strokeDasharray: "3,3"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: xS(ssStartAge) + 3,
+    y: PT + 26,
+    fontSize: "8",
+    fill: "#F59E0B"
+  }, "SS@67")), /*#__PURE__*/React.createElement("line", {
     x1: PL,
     y1: fireY,
     x2: W - PR,
@@ -1975,43 +2198,60 @@ function FireTab({
     strokeDasharray: "6,3"
   }), /*#__PURE__*/React.createElement("text", {
     x: W - PR - 2,
-    y: fireY - 5,
+    y: fireY - 4,
     textAnchor: "end",
     fontSize: "9",
     fill: "#EC4899"
-  }, "FIRE: ", fmt(fireNum)), !coastDone && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+  }, "FIRE: ", fmt(fireNumWithSS)), !coastDone && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
     x1: PL,
-    y1: yS(coastNum),
-    x2: W - PR,
-    y2: yS(coastNum),
+    y1: coastY,
+    x2: xS(retAge),
+    y2: coastY,
     stroke: "#8B5CF6",
     strokeWidth: "1",
     strokeDasharray: "3,3"
   }), /*#__PURE__*/React.createElement("text", {
     x: PL + 4,
-    y: yS(coastNum) - 4,
+    y: coastY - 4,
     fontSize: "9",
     fill: "#8B5CF6"
-  }, "Coast: ", fmt(coastNum))), /*#__PURE__*/React.createElement("path", {
-    d: areaPath,
-    fill: "url(#portGrad)"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: linePts,
+  }, "Coast: ", fmt(coastNum))), accumArea && /*#__PURE__*/React.createElement("path", {
+    d: accumArea,
+    fill: "url(#accumGrad)"
+  }), accumLine && /*#__PURE__*/React.createElement("polyline", {
+    points: accumLine,
     fill: "none",
     stroke: "#10B981",
-    strokeWidth: "2"
-  }), fireYear !== null && fireYear <= chartYears && /*#__PURE__*/React.createElement("circle", {
-    cx: xS(fireYear),
-    cy: yS(fireNum),
-    r: "5",
-    fill: "#EC4899",
-    stroke: "#080E1A",
-    strokeWidth: "2"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: xS(0),
+    strokeWidth: "2.5"
+  }), distribLine && /*#__PURE__*/React.createElement("polyline", {
+    points: distribLine,
+    fill: "none",
+    stroke: "#8B5CF6",
+    strokeWidth: "2.5"
+  }), shortfall && depletionAge < maxAge && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: xS(depletionAge),
+    y1: PT,
+    x2: xS(depletionAge),
+    y2: H - PB,
+    stroke: "#EF4444",
+    strokeWidth: "1.5"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: xS(depletionAge) + 2,
+    y: PT + 10,
+    fontSize: "9",
+    fill: "#EF4444"
+  }, "Depleted")), /*#__PURE__*/React.createElement("circle", {
+    cx: xS(curAge),
     cy: yS(nest),
     r: "4",
     fill: "#3B82F6",
+    stroke: "#080E1A",
+    strokeWidth: "2"
+  }), portfolioAtRetirement > 0 && /*#__PURE__*/React.createElement("circle", {
+    cx: xS(retAge),
+    cy: yS(portfolioAtRetirement),
+    r: "5",
+    fill: isFireReady ? "#10B981" : "#F59E0B",
     stroke: "#080E1A",
     strokeWidth: "2"
   }))), /*#__PURE__*/React.createElement("div", {
@@ -2023,17 +2263,23 @@ function FireTab({
     }
   }, [{
     c: "#10B981",
-    l: "Your portfolio"
-  }, {
-    c: "#EC4899",
-    l: `FIRE target (${fmt(fireNum)})`
+    l: "Accumulation (saving)"
   }, {
     c: "#8B5CF6",
-    l: `Coast FIRE (${fmt(coastNum)})`
+    l: "Distribution (drawing down)"
+  }, {
+    c: "#EC4899",
+    l: `FIRE target (${fmt(fireNumWithSS)})`
   }, {
     c: "#3B82F6",
     l: "Today"
-  }].map(({
+  }, ...(ssAnnual > 0 && ssStartAge > retAge ? [{
+    c: "#F59E0B",
+    l: "SS starts at 67"
+  }] : []), ...(shortfall ? [{
+    c: "#EF4444",
+    l: `Portfolio depletes age ${Math.floor(depletionAge)}`
+  }] : [])].map(({
     c,
     l
   }) => /*#__PURE__*/React.createElement("div", {
@@ -2053,7 +2299,79 @@ function FireTab({
       display: "inline-block",
       borderRadius: 2
     }
-  }), l)))), /*#__PURE__*/React.createElement(Panel, {
+  }), l)))), ssAnnual > 0 && /*#__PURE__*/React.createElement(Panel, {
+    title: "Social Security Impact",
+    accent: "#F59E0B"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(3,1fr)",
+      gap: 10,
+      marginBottom: 10
+    }
+  }, [{
+    l: "SS Annual Income",
+    v: fmt(ssAnnual),
+    c: "#F59E0B",
+    s: `${fmt(ssMonthly)}/mo starting at ${ssStartAge}`
+  }, {
+    l: "FIRE # Without SS",
+    v: fmt(fireNumNoSS),
+    c: "#EC4899",
+    s: `Based purely on ${num(withdrawal)}% of spend`
+  }, {
+    l: "FIRE # With SS",
+    v: fmt(fireNumWithSS),
+    c: "#10B981",
+    s: `${fmt(fireNumNoSS - fireNumWithSS)} smaller target`
+  }].map(({
+    l,
+    v,
+    c,
+    s
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: l,
+    style: {
+      background: "#0B1120",
+      borderRadius: 8,
+      padding: "10px 12px"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#6B7280",
+      textTransform: "uppercase",
+      letterSpacing: "1px",
+      marginBottom: 4
+    }
+  }, l), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 800,
+      color: c,
+      fontVariantNumeric: "tabular-nums"
+    }
+  }, v), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6B7280",
+      marginTop: 2
+    }
+  }, s)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: "#6B7280",
+      lineHeight: 1.6
+    }
+  }, "SS covers ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#F59E0B"
+    }
+  }, spend > 0 ? Math.min(100, Math.round(ssAnnual / spend * 100)) : 0, "%"), " of retirement spend, reducing the portfolio you need to self-fund by ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "#10B981"
+    }
+  }, fmt(fireNumNoSS - fireNumWithSS)), ". Delaying SS from 62\u219270 increases your benefit ~77% \u2014 use your SSA.gov statement for your actual projected benefit.")), /*#__PURE__*/React.createElement(Panel, {
     title: "FIRE Scenarios",
     accent: "#F59E0B"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2085,15 +2403,21 @@ function FireTab({
       color: "#6B7280",
       marginBottom: 2
     }
-  }, "Annual spend"), /*#__PURE__*/React.createElement("div", {
+  }, "Annual spend (today's $)"), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: 800,
       color: "#F9FAFB",
       fontVariantNumeric: "tabular-nums",
+      marginBottom: 2
+    }
+  }, fmt(s.spend), "/yr"), ssAnnual > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: "#F59E0B",
       marginBottom: 6
     }
-  }, fmt(s.spend), "/yr"), /*#__PURE__*/React.createElement("div", {
+  }, "SS covers ", fmt(Math.min(ssAnnual, s.spend)), " \u2192 need ", fmt(Math.max(0, s.spend - ssAnnual)), " from portfolio"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: "#6B7280",
@@ -2121,7 +2445,7 @@ function FireTab({
     }
   }, /*#__PURE__*/React.createElement("span", null, "Progress"), /*#__PURE__*/React.createElement("span", null, s.pct.toFixed(1), "%")), /*#__PURE__*/React.createElement(ProgBar, {
     value: nest,
-    max: s.fireNum,
+    max: Math.max(1, s.fireNum),
     color: s.color,
     height: 5
   })), /*#__PURE__*/React.createElement("div", {
@@ -2143,7 +2467,7 @@ function FireTab({
       borderCollapse: "collapse",
       fontSize: 12
     }
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ["Year", "Age", "Portfolio Value", "Progress to FIRE", "Monthly Interest Earned"].map(h => /*#__PURE__*/React.createElement("th", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, ["Year", "Age", "Phase", "Portfolio (today's $)", "Progress to FIRE", "Monthly Return"].map(h => /*#__PURE__*/React.createElement("th", {
     key: h,
     style: {
       textAlign: "left",
@@ -2153,14 +2477,17 @@ function FireTab({
       fontWeight: 600,
       fontSize: 11
     }
-  }, h)))), /*#__PURE__*/React.createElement("tbody", null, projection.filter((_, i) => i % 1 === 0).slice(0, fireYear !== null ? Math.ceil(fireYear) + 2 : 30).map(d => {
-    const isFire = d.val >= fireNum && (projection[projection.indexOf(d) - 1]?.val ?? 0) < fireNum || Math.abs(d.age - (curAge + (fireYear ?? 0))) < 0.6;
-    const monthlyInterest = d.val * rMo;
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, projection.slice(0, Math.min(projection.length, deathAge - curAge + 2)).map((d, i) => {
+    const isRetireRow = Math.round(d.age) === retAge && d.phase === "distrib";
+    const prev = projection[i - 1];
+    const isCross = prev && prev.val < fireNumWithSS && d.val >= fireNumWithSS;
+    const ssActive = d.age >= ssStartAge && d.phase === "distrib";
+    const monthlyReturn = d.val * (d.phase === "accum" ? rMoPre : rMoPost);
     return /*#__PURE__*/React.createElement("tr", {
       key: d.yr,
       style: {
-        background: isFire ? "#0F2B1A" : d.yr % 2 === 0 ? "#0B1120" : "transparent",
-        borderLeft: isFire ? "3px solid #10B981" : "3px solid transparent"
+        background: isCross ? "#0F2B1A" : isRetireRow ? "#0F1F3A" : d.yr % 2 === 0 ? "#0B1120" : "transparent",
+        borderLeft: isCross ? "3px solid #10B981" : isRetireRow ? "3px solid #8B5CF6" : "3px solid transparent"
       }
     }, /*#__PURE__*/React.createElement("td", {
       style: {
@@ -2171,14 +2498,26 @@ function FireTab({
       style: {
         padding: "5px 8px",
         color: "#F9FAFB",
-        fontWeight: d.val >= fireNum ? 700 : 400
+        fontWeight: isRetireRow || isCross ? 700 : 400
       }
     }, Math.round(d.age)), /*#__PURE__*/React.createElement("td", {
       style: {
+        padding: "5px 8px"
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        borderRadius: 4,
+        padding: "2px 6px",
+        color: d.phase === "accum" ? "#10B981" : ssActive ? "#F59E0B" : "#8B5CF6",
+        background: d.phase === "accum" ? "#10B98120" : ssActive ? "#F59E0B20" : "#8B5CF620"
+      }
+    }, d.phase === "accum" ? "Saving" : ssActive ? "Spending + SS" : "Spending")), /*#__PURE__*/React.createElement("td", {
+      style: {
         padding: "5px 8px",
-        color: d.val >= fireNum ? "#10B981" : "#F9FAFB",
+        color: d.val >= fireNumWithSS ? "#10B981" : d.val <= 0 ? "#EF4444" : "#F9FAFB",
         fontVariantNumeric: "tabular-nums",
-        fontWeight: d.val >= fireNum ? 700 : 400
+        fontWeight: isCross ? 700 : 400
       }
     }, fmt(d.val)), /*#__PURE__*/React.createElement("td", {
       style: {
@@ -2202,24 +2541,24 @@ function FireTab({
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         height: "100%",
-        width: `${Math.min(100, d.val / fireNum * 100)}%`,
-        background: d.val >= fireNum ? "#10B981" : "#3B82F6",
+        width: `${Math.min(100, fireNumWithSS > 0 ? d.val / fireNumWithSS * 100 : 100)}%`,
+        background: d.val >= fireNumWithSS ? "#10B981" : "#3B82F6",
         borderRadius: 2
       }
     })), /*#__PURE__*/React.createElement("span", {
       style: {
-        color: d.val >= fireNum ? "#10B981" : "#6B7280",
+        color: d.val >= fireNumWithSS ? "#10B981" : "#6B7280",
         fontSize: 11,
-        minWidth: 36
+        minWidth: 38
       }
-    }, Math.min(100, d.val / fireNum * 100).toFixed(0), "%", d.val >= fireNum ? " 🎉" : ""))), /*#__PURE__*/React.createElement("td", {
+    }, Math.min(100, fireNumWithSS > 0 ? Math.round(d.val / fireNumWithSS * 100) : 100), "%", isCross ? " 🎉" : ""))), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: "5px 8px",
         color: "#8B5CF6",
         fontVariantNumeric: "tabular-nums"
       }
-    }, fmt(monthlyInterest), "/mo"));
-  })))), /*#__PURE__*/React.createElement(Note, null, "Monthly interest = portfolio \xD7 monthly return rate. Once this exceeds your expenses, you've hit FIRE regardless of principal.")), /*#__PURE__*/React.createElement("div", {
+    }, fmt(monthlyReturn), "/mo"));
+  })))), /*#__PURE__*/React.createElement(Note, null, "All values in today's dollars (real returns). Pre-retire: ", (realR * 100).toFixed(1), "% real \xB7 Post-retire: ", (realRPost * 100).toFixed(1), "% real (conservative shift). Monthly return = portfolio \xD7 real monthly rate.")), /*#__PURE__*/React.createElement("div", {
     style: {
       background: "#0B1120",
       border: "1px solid #1F2937",
@@ -2233,7 +2572,7 @@ function FireTab({
     style: {
       color: "#9CA3AF"
     }
-  }, "Assumptions:"), " Returns are real (inflation-adjusted). ", num(annReturn), "% annual return assumes a diversified index portfolio. The ", num(withdrawal), "% safe withdrawal rate (SWR) is based on the Trinity Study \u2014 historically ", num(withdrawal) <= 3.5 ? "very conservative" : "reasonable", " for 30-year retirements. Coast FIRE = the nest egg that grows to your FIRE number by age ", coastAge, " with zero additional contributions."));
+  }, "Methodology:"), " All projections in today's dollars using real returns (", num(nomReturn), "% nominal \u2212 ", num(inflation), "% inflation = ", (realR * 100).toFixed(1), "% real pre-retire). Post-retirement uses ", (realRPost * 100).toFixed(1), "% real return (portfolio shifts toward bonds/conservative). ", num(withdrawal), "% SWR: ", num(withdrawal) <= 3.4 ? "conservative for early retirees (35+ yr horizon)" : num(withdrawal) <= 3.95 ? "Morningstar 2026 research — 90% confidence over 30 yr" : num(withdrawal) <= 4.05 ? "Trinity Study — 95% historical success over 30 yr" : "guardrails strategy — requires flex spending (cut 10% if portfolio drops 20%)", ". SS benefit assumed COLA-adjusted (real purchasing power maintained)."));
 }
 function BudgetApp() {
   const [setup, setSetup] = useState(D_SETUP);
@@ -2244,14 +2583,24 @@ function BudgetApp() {
   const [equity, setEquity] = useState("1100000");
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    try { const r = localStorage.getItem("bgt6_setup"); if (r) setSetup(JSON.parse(r)); } catch {}
-    try { const r2 = localStorage.getItem("bgt6_exp"); if (r2) setExp(JSON.parse(r2)); } catch {}
+    try {
+      const r = localStorage.getItem("bgt6_setup");
+      if (r) setSetup(JSON.parse(r));
+    } catch {}
+    try {
+      const r2 = localStorage.getItem("bgt6_exp");
+      if (r2) setExp(JSON.parse(r2));
+    } catch {}
     setLoaded(true);
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    try { localStorage.setItem("bgt6_setup", JSON.stringify(setup)); } catch {}
-    try { localStorage.setItem("bgt6_exp", JSON.stringify(expenses)); } catch {}
+    try {
+      localStorage.setItem("bgt6_setup", JSON.stringify(setup));
+    } catch {}
+    try {
+      localStorage.setItem("bgt6_exp", JSON.stringify(expenses));
+    } catch {}
   }, [setup, expenses, loaded]);
   const upd = (f, v) => setSetup(s => ({
     ...s,
