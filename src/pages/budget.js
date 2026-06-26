@@ -464,8 +464,7 @@ function PeerPanel({ gross, fs, th, taxes, retireMo, surplus, etot, otmo, fmt, p
   );
 }
 
-function WealthPanel({ ageBracket, setAgeBracket }) {
-  const [equity, setEquity] = useState("750000");
+function WealthPanel({ ageBracket, setAgeBracket, equity, setEquity }) {
   const myEquity = num(equity);
   const bracket = WEALTH_BRACKETS.find(b => b.label === ageBracket) || WEALTH_BRACKETS[1];
   const rtpP99 = Math.round(bracket.p99 * RTP_WEALTH_SCALE);
@@ -569,9 +568,281 @@ function WealthPanel({ ageBracket, setAgeBracket }) {
       </div>
 
       <p style={{fontSize:10,color:"#4B5563",lineHeight:1.5}}>
-        Source: Federal Reserve Survey of Consumer Finances 2022. Net worth includes home equity, retirement accounts, investments, and other assets minus all debts. RTP top 1% estimated at ~65% of national threshold (Raleigh-Durham MSA wealth distribution). These are household net worth figures.
+        Source: Federal Reserve Survey of Consumer Finances 2022. All figures are <strong style={{color:"#9CA3AF"}}>household</strong> net worth (not individual) — includes home equity, retirement accounts, investments, and other assets minus all debts. RTP top 1% estimated at ~65% of national threshold (Raleigh-Durham MSA wealth distribution).
       </p>
     </Panel>
+  );
+}
+
+function FireTab({ mySave, equity, setEquity }) {
+  const [age,        setAge]        = useState("32");
+  const [retireAge,  setRetireAge]  = useState("65");
+  const [target,     setTarget]     = useState("100000");
+  const [withdrawal, setWithdrawal] = useState("4");
+  const [annReturn,  setAnnReturn]  = useState("7");
+  const [monthlySav, setMonthlySav] = useState(null); // null = use live budget value
+
+  const curAge   = Math.max(18, Math.min(80, num(age)));
+  const coastAge = Math.max(curAge+1, Math.min(85, num(retireAge)));
+  const nest     = num(equity);
+  const spend    = num(target);
+  const wr       = Math.max(0.5, Math.min(10, num(withdrawal))) / 100;
+  const r        = Math.max(0, Math.min(20, num(annReturn))) / 100;
+  const rMo      = Math.pow(1 + r, 1/12) - 1;
+  const saveMo   = monthlySav !== null ? num(monthlySav) : Math.max(0, mySave);
+  const fireNum  = spend / wr;
+
+  // Coast FIRE: amount needed today so it grows to fireNum by retireAge with no contributions
+  const coastNum = fireNum / Math.pow(1 + r, coastAge - curAge);
+
+  // Project year-by-year until FIRE or 50 years
+  const projection = [];
+  let portfolio = nest;
+  let fireYear = null;
+  const maxYears = Math.max(50, coastAge - curAge + 10);
+  for (let mo = 0; mo <= maxYears * 12; mo++) {
+    if (mo % 12 === 0) {
+      const yr = mo / 12;
+      projection.push({ yr, age: curAge + yr, val: portfolio });
+      if (!fireYear && portfolio >= fireNum) fireYear = yr;
+    }
+    portfolio = portfolio * (1 + rMo) + saveMo;
+  }
+  if (!fireYear && portfolio >= fireNum) fireYear = maxYears;
+
+  const fireAgeProjRaw = fireYear !== null ? curAge + fireYear : null;
+  const fireAgeProj    = fireAgeProjRaw !== null ? Math.round(fireAgeProjRaw * 10) / 10 : null;
+  const yearsLeft      = fireYear !== null ? Math.max(0, fireYear) : null;
+  const progress       = Math.min(100, (nest / fireNum) * 100);
+  const coastDone      = nest >= coastNum;
+
+  // Scenarios (lean/target/fat)
+  const scenarios = [
+    { label:"Lean FIRE",   spend:60000,  color:"#10B981" },
+    { label:"Your Target", spend,        color:"#3B82F6", highlight:true },
+    { label:"Fat FIRE",    spend:200000, color:"#F59E0B" },
+  ].map(s => {
+    const fn = s.spend / wr;
+    let p2 = nest, yrs = null;
+    for (let mo = 0; mo <= 600; mo++) {
+      if (p2 >= fn) { yrs = mo / 12; break; }
+      p2 = p2 * (1 + rMo) + saveMo;
+    }
+    return { ...s, fireNum: fn, retireAge: yrs !== null ? Math.round((curAge + yrs) * 10)/10 : null, pct: Math.min(100, (nest/fn)*100) };
+  });
+
+  // SVG chart data — yearly up to fireYear+5 or 40y
+  const chartYears  = Math.min(fireYear !== null ? fireYear + 6 : 40, 50);
+  const chartData   = projection.filter(p => p.yr <= chartYears);
+  const maxVal      = Math.max(fireNum * 1.1, chartData[chartData.length-1]?.val ?? fireNum);
+  const W = 860, H = 220, PL = 70, PR = 20, PT = 16, PB = 36;
+  const xS = yr => PL + (yr / chartYears) * (W - PL - PR);
+  const yS = v  => PT + (1 - v / maxVal) * (H - PT - PB);
+
+  const linePts = chartData.map(d => `${xS(d.yr)},${yS(d.val)}`).join(" ");
+  const areaPath = `M${xS(0)},${yS(0)} ` + chartData.map(d => `L${xS(d.yr)},${yS(d.val)}`).join(" ") + ` L${xS(chartData[chartData.length-1]?.yr ?? 0)},${yS(0)} Z`;
+  const fireY = yS(fireNum);
+  const xTicks = Array.from({length:6}, (_,i)=>Math.round(chartYears * i/5));
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => ({ v: maxVal*f, y: yS(maxVal*f) }));
+
+  const inpStyle = {
+    background:"#0B1120", border:"1px solid #374151", borderRadius:6,
+    padding:"5px 8px", color:"#F9FAFB", fontSize:13, outline:"none", width:90,
+    fontVariantNumeric:"tabular-nums",
+  };
+
+  return (
+    <div>
+      {/* Summary cards */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+        {[
+          { l:"FIRE Number",        v:fmt(fireNum),       c:"#3B82F6", s:`${num(withdrawal)}% withdrawal rate` },
+          { l:"Current Progress",   v:`${progress.toFixed(1)}%`, c:progress>=100?"#10B981":"#F59E0B", s:`${fmt(nest)} of ${fmt(fireNum)}` },
+          { l:"Projected Ret. Age", v:fireAgeProj !== null ? String(Math.round(fireAgeProj)) : "50+ yrs", c:"#EC4899", s:yearsLeft !== null ? `in ~${Math.round(yearsLeft)} years` : "increase savings" },
+          { l:"Coast FIRE",         v:coastDone ? "✓ Done!" : fmt(coastNum), c:coastDone?"#10B981":"#8B5CF6", s:coastDone ? `Hit at current ${fmt(nest)}` : `${fmt(coastNum - nest)} to go (coast by ${coastAge})` },
+        ].map(({l,v,c,s})=>(
+          <div key={l} style={{background:"#111827",border:"1px solid #1F2937",borderRadius:10,padding:"12px 14px"}}>
+            <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",fontWeight:700,marginBottom:4}}>{l}</div>
+            <div style={{fontSize:18,fontWeight:800,color:c,fontVariantNumeric:"tabular-nums",lineHeight:1.2}}>{v}</div>
+            {s&&<div style={{fontSize:11,color:"#6B7280",marginTop:3}}>{s}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Inputs */}
+      <Panel title="Assumptions" accent="#3B82F6">
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:0}}>
+          {[
+            { label:"Current Age", value:age, set:setAge, prefix:"", suffix:" yrs", w:60 },
+            { label:"Coast-to Age", value:retireAge, set:setRetireAge, prefix:"", suffix:" yrs", w:60 },
+            { label:"Target Annual Spend", value:target, set:setTarget, prefix:"$", suffix:"", w:100 },
+            { label:"Withdrawal Rate", value:withdrawal, set:setWithdrawal, prefix:"", suffix:"%", w:60 },
+            { label:"Expected Annual Return", value:annReturn, set:setAnnReturn, prefix:"", suffix:"% real", w:60 },
+            { label:"Monthly Savings", value:monthlySav !== null ? String(monthlySav) : String(Math.round(mySave)),
+              set:v=>setMonthlySav(v), prefix:"$", suffix:"/mo", w:90,
+              note: monthlySav === null ? `Auto from budget: ${fmt(mySave)}/mo` : null,
+              reset: monthlySav !== null ? ()=>setMonthlySav(null) : null },
+          ].map(({label,value,set,prefix,suffix,w,note,reset})=>(
+            <div key={label} style={{padding:"8px 0",borderBottom:"1px solid #1F2937",paddingRight:8}}>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:4}}>{label}</div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
+                  {prefix&&<span style={{padding:"0 2px 0 7px",color:"#6B7280",fontSize:12}}>{prefix}</span>}
+                  <input type="text" inputMode="decimal" value={value}
+                    onChange={e=>set(e.target.value)}
+                    style={{...inpStyle,width:w,border:"none",background:"transparent"}}/>
+                  {suffix&&<span style={{padding:"0 7px 0 2px",color:"#6B7280",fontSize:12}}>{suffix}</span>}
+                </div>
+                {reset&&<button onClick={reset} style={{fontSize:10,color:"#6B7280",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}}>reset</button>}
+              </div>
+              {note&&<div style={{fontSize:10,color:"#4B5563",marginTop:3}}>{note}</div>}
+            </div>
+          ))}
+        </div>
+        <div style={{marginTop:10,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:11,color:"#6B7280"}}>Current savings / equity:</span>
+          <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
+            <span style={{padding:"0 3px 0 7px",color:"#6B7280",fontSize:12}}>$</span>
+            <input type="text" inputMode="decimal" value={equity} onChange={e=>setEquity(e.target.value)}
+              style={{...inpStyle,width:110,border:"none",background:"transparent"}}/>
+          </div>
+          <span style={{fontSize:11,color:"#4B5563"}}>← shared with Wealth tab</span>
+        </div>
+      </Panel>
+
+      {/* SVG Projection chart */}
+      <Panel title="Portfolio Projection" accent="#10B981">
+        <div style={{overflowX:"auto"}}>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",minWidth:400,display:"block"}}>
+            <defs>
+              <linearGradient id="portGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#10B981" stopOpacity="0.3"/>
+                <stop offset="100%" stopColor="#10B981" stopOpacity="0.02"/>
+              </linearGradient>
+            </defs>
+            {/* Grid lines */}
+            {yTicks.map(t=>(
+              <g key={t.v}>
+                <line x1={PL} y1={t.y} x2={W-PR} y2={t.y} stroke="#1F2937" strokeWidth="1"/>
+                <text x={PL-6} y={t.y+4} textAnchor="end" fontSize="9" fill="#4B5563">
+                  {t.v>=1000000?`$${(t.v/1000000).toFixed(1)}M`:t.v>=1000?`$${Math.round(t.v/1000)}k`:"$0"}
+                </text>
+              </g>
+            ))}
+            {/* X ticks */}
+            {xTicks.map(yr=>(
+              <g key={yr}>
+                <line x1={xS(yr)} y1={PT} x2={xS(yr)} y2={H-PB} stroke="#1F2937" strokeWidth="1"/>
+                <text x={xS(yr)} y={H-PB+14} textAnchor="middle" fontSize="9" fill="#4B5563">
+                  {`Age ${Math.round(curAge+yr)}`}
+                </text>
+              </g>
+            ))}
+            {/* FIRE threshold line */}
+            <line x1={PL} y1={fireY} x2={W-PR} y2={fireY} stroke="#EC4899" strokeWidth="1.5" strokeDasharray="6,3"/>
+            <text x={W-PR-2} y={fireY-5} textAnchor="end" fontSize="9" fill="#EC4899">FIRE: {fmt(fireNum)}</text>
+            {/* Coast FIRE line */}
+            {!coastDone && (
+              <>
+                <line x1={PL} y1={yS(coastNum)} x2={W-PR} y2={yS(coastNum)} stroke="#8B5CF6" strokeWidth="1" strokeDasharray="3,3"/>
+                <text x={PL+4} y={yS(coastNum)-4} fontSize="9" fill="#8B5CF6">Coast: {fmt(coastNum)}</text>
+              </>
+            )}
+            {/* Area fill */}
+            <path d={areaPath} fill="url(#portGrad)"/>
+            {/* Portfolio line */}
+            <polyline points={linePts} fill="none" stroke="#10B981" strokeWidth="2"/>
+            {/* FIRE crossover dot */}
+            {fireYear !== null && fireYear <= chartYears && (
+              <circle cx={xS(fireYear)} cy={yS(fireNum)} r="5" fill="#EC4899" stroke="#080E1A" strokeWidth="2"/>
+            )}
+            {/* Today marker */}
+            <circle cx={xS(0)} cy={yS(nest)} r="4" fill="#3B82F6" stroke="#080E1A" strokeWidth="2"/>
+          </svg>
+        </div>
+        <div style={{display:"flex",gap:16,marginTop:6,flexWrap:"wrap"}}>
+          {[
+            {c:"#10B981",l:"Your portfolio"},
+            {c:"#EC4899",l:`FIRE target (${fmt(fireNum)})`},
+            {c:"#8B5CF6",l:`Coast FIRE (${fmt(coastNum)})`},
+            {c:"#3B82F6",l:"Today"},
+          ].map(({c,l})=>(
+            <div key={l} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#6B7280"}}>
+              <span style={{width:10,height:3,background:c,display:"inline-block",borderRadius:2}}/>
+              {l}
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      {/* Scenarios */}
+      <Panel title="FIRE Scenarios" accent="#F59E0B">
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+          {scenarios.map(s=>(
+            <div key={s.label} style={{background:s.highlight?"#0F172A":"#0B1120",
+              border:`1px solid ${s.highlight?"#3B82F6":"#1F2937"}`,borderRadius:10,padding:"12px 14px"}}>
+              <div style={{fontSize:11,fontWeight:700,color:s.color,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>{s.label}</div>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:2}}>Annual spend</div>
+              <div style={{fontSize:16,fontWeight:800,color:"#F9FAFB",fontVariantNumeric:"tabular-nums",marginBottom:6}}>{fmt(s.spend)}/yr</div>
+              <div style={{fontSize:11,color:"#6B7280",marginBottom:2}}>FIRE number</div>
+              <div style={{fontSize:14,fontWeight:700,color:s.color,fontVariantNumeric:"tabular-nums",marginBottom:8}}>{fmt(s.fireNum)}</div>
+              <div style={{marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#6B7280",marginBottom:3}}>
+                  <span>Progress</span><span>{s.pct.toFixed(1)}%</span>
+                </div>
+                <ProgBar value={nest} max={s.fireNum} color={s.color} height={5}/>
+              </div>
+              <div style={{fontSize:12,fontWeight:700,color:s.retireAge !== null ? s.color : "#EF4444"}}>
+                {s.retireAge !== null ? `Retire at ${Math.round(s.retireAge)}` : "50+ years away"}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      {/* Milestones table */}
+      <Panel title="Year-by-Year Milestones" accent="#6366F1">
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr>
+                {["Year","Age","Portfolio Value","Progress to FIRE","Monthly Interest Earned"].map(h=>(
+                  <th key={h} style={{textAlign:"left",padding:"6px 8px",borderBottom:"1px solid #374151",color:"#6B7280",fontWeight:600,fontSize:11}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {projection.filter((_,i)=>i%1===0).slice(0, fireYear !== null ? Math.ceil(fireYear)+2 : 30).map(d=>{
+                const isFire = d.val >= fireNum && (projection[projection.indexOf(d)-1]?.val ?? 0) < fireNum || Math.abs(d.age - (curAge + (fireYear??0))) < 0.6;
+                const monthlyInterest = d.val * rMo;
+                return (
+                  <tr key={d.yr} style={{background:isFire?"#0F2B1A":d.yr%2===0?"#0B1120":"transparent",
+                    borderLeft:isFire?"3px solid #10B981":"3px solid transparent"}}>
+                    <td style={{padding:"5px 8px",color:"#6B7280"}}>{new Date().getFullYear()+d.yr}</td>
+                    <td style={{padding:"5px 8px",color:"#F9FAFB",fontWeight:d.val>=fireNum?700:400}}>{Math.round(d.age)}</td>
+                    <td style={{padding:"5px 8px",color:d.val>=fireNum?"#10B981":"#F9FAFB",fontVariantNumeric:"tabular-nums",fontWeight:d.val>=fireNum?700:400}}>{fmt(d.val)}</td>
+                    <td style={{padding:"5px 8px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{flex:1,height:4,background:"#1F2937",borderRadius:2,overflow:"hidden",minWidth:60}}>
+                          <div style={{height:"100%",width:`${Math.min(100,(d.val/fireNum)*100)}%`,background:d.val>=fireNum?"#10B981":"#3B82F6",borderRadius:2}}/>
+                        </div>
+                        <span style={{color:d.val>=fireNum?"#10B981":"#6B7280",fontSize:11,minWidth:36}}>{Math.min(100,(d.val/fireNum)*100).toFixed(0)}%{d.val>=fireNum?" 🎉":""}</span>
+                      </div>
+                    </td>
+                    <td style={{padding:"5px 8px",color:"#8B5CF6",fontVariantNumeric:"tabular-nums"}}>{fmt(monthlyInterest)}/mo</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <Note>Monthly interest = portfolio × monthly return rate. Once this exceeds your expenses, you've hit FIRE regardless of principal.</Note>
+      </Panel>
+
+      <div style={{background:"#0B1120",border:"1px solid #1F2937",borderRadius:8,padding:"10px 14px",fontSize:11,color:"#6B7280",lineHeight:1.7}}>
+        <strong style={{color:"#9CA3AF"}}>Assumptions:</strong> Returns are real (inflation-adjusted). {num(annReturn)}% annual return assumes a diversified index portfolio. The {num(withdrawal)}% safe withdrawal rate (SWR) is based on the Trinity Study — historically {num(withdrawal)<=3.5?"very conservative":"reasonable"} for 30-year retirements. Coast FIRE = the nest egg that grows to your FIRE number by age {coastAge} with zero additional contributions.
+      </div>
+    </div>
   );
 }
 
@@ -581,6 +852,7 @@ export default function BudgetApp() {
   const [tab,       setTab]       = useState("paycheck");
   const [addingExp, setAddingExp] = useState(false);
   const [ageBracket, setAgeBracket] = useState(DEFAULT_AGE_BRACKET);
+  const [equity, setEquity] = useState("1100000");
   const [loaded,    setLoaded]    = useState(false);
 
   useEffect(()=>{
@@ -662,7 +934,7 @@ export default function BudgetApp() {
             <p style={{margin:"2px 0 0",color:"#6B7280",fontSize:12}}>{filing} · NC 3.99% flat · Estimates only</p>
           </div>
           <div style={S.tabos}>
-            {[["paycheck","💼 Paycheck"],["budget","📊 Budget"]].map(([t,l])=>(
+            {[["paycheck","💼 Paycheck"],["budget","📊 Budget"],["fire","🔥 FIRE"]].map(([t,l])=>(
               <button key={t} onClick={()=>setTab(t)} style={{cursor:"pointer",border:"none",
                 padding:"7px 14px",fontSize:13,fontWeight:600,borderRadius:7,
                 background:tab===t?"#1E293B":"none",color:tab===t?"#F9FAFB":"#6B7280"}}>
@@ -961,7 +1233,7 @@ export default function BudgetApp() {
             </Panel>
 
             <PeerPanel gross={gross} fs={fs} th={th} taxes={T.total} retireMo={retMo} surplus={rem} etot={etot} otmo={otmo} fmt={fmt} pct={pct} ageBracket={ageBracket} setAgeBracket={setAgeBracket}/>
-            <WealthPanel ageBracket={ageBracket} setAgeBracket={setAgeBracket}/>
+            <WealthPanel ageBracket={ageBracket} setAgeBracket={setAgeBracket} equity={equity} setEquity={setEquity}/>
 
             <div style={{textAlign:"center",marginTop:4}}>
               <button onClick={()=>{setSetup(D_SETUP);setExp(D_EXP);}}
@@ -970,6 +1242,10 @@ export default function BudgetApp() {
               </button>
             </div>
           </div>
+        )}
+
+        {tab==="fire"&&(
+          <FireTab mySave={mySave} equity={equity} setEquity={setEquity}/>
         )}
       </div>
     </div>
