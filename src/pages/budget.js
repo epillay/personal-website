@@ -27,6 +27,21 @@ const AGE_BRACKETS = [
 ];
 const DEFAULT_AGE_BRACKET = "30–34";
 
+// Net worth percentiles by age group — Fed Survey of Consumer Finances 2022
+// p50=median, p75, p90, p95, p99=top 1%
+// RTP top 1% estimated at ~65% of national (Raleigh-Durham MSA wealth distribution)
+const WEALTH_BRACKETS = [
+  { label:"25–29", p50:10000,  p75:55000,  p90:180000,  p95:360000,  p99:1000000  },
+  { label:"30–34", p50:35000,  p75:150000, p90:420000,  p95:780000,  p99:2500000  },
+  { label:"35–39", p50:75000,  p75:310000, p90:800000,  p95:1450000, p99:4000000  },
+  { label:"40–44", p50:130000, p75:560000, p90:1350000, p95:2500000, p99:6000000  },
+  { label:"45–49", p50:175000, p75:760000, p90:1850000, p95:3500000, p99:8500000  },
+  { label:"50–54", p50:220000, p75:960000, p90:2250000, p95:4100000, p99:10500000 },
+  { label:"55–59", p50:255000, p75:1100000,p90:2600000, p95:4600000, p99:11500000 },
+  { label:"60–64", p50:265000, p75:1200000,p90:2850000, p95:5100000, p99:12500000 },
+];
+const RTP_WEALTH_SCALE = 0.65;
+
 const PRESET_CLR = {
   "Housing":"#6366F1","Food & Groceries":"#10B981","Transportation":"#F59E0B",
   "Utilities":"#8B5CF6","Healthcare":"#EF4444","Entertainment":"#EC4899",
@@ -347,8 +362,7 @@ function AddExpenseForm({ onAdd, onCancel }) {
   );
 }
 
-function PeerPanel({ gross, fs, th, taxes, retireMo, surplus, etot, otmo, fmt, pct }) {
-  const [ageBracket, setAgeBracket] = useState(DEFAULT_AGE_BRACKET);
+function PeerPanel({ gross, fs, th, taxes, retireMo, surplus, etot, otmo, fmt, pct, ageBracket, setAgeBracket }) {
   const bracket = AGE_BRACKETS.find(b => b.label === ageBracket) || AGE_BRACKETS[1];
 
   const peers = [
@@ -450,11 +464,120 @@ function PeerPanel({ gross, fs, th, taxes, retireMo, surplus, etot, otmo, fmt, p
   );
 }
 
+function WealthPanel({ ageBracket, setAgeBracket }) {
+  const [equity, setEquity] = useState("750000");
+  const myEquity = num(equity);
+  const bracket = WEALTH_BRACKETS.find(b => b.label === ageBracket) || WEALTH_BRACKETS[1];
+  const rtpP99 = Math.round(bracket.p99 * RTP_WEALTH_SCALE);
+
+  // Figure out which percentile band the user falls in
+  const bands = [
+    { pct:"50th", val:bracket.p50, color:"#6B7280" },
+    { pct:"75th", val:bracket.p75, color:"#3B82F6" },
+    { pct:"90th", val:bracket.p90, color:"#8B5CF6" },
+    { pct:"95th", val:bracket.p95, color:"#F59E0B" },
+    { pct:"99th (Top 1% National)", val:bracket.p99, color:"#EC4899" },
+    { pct:"99th (Top 1% RTP est.)", val:rtpP99, color:"#F97316" },
+  ];
+
+  const below = bands.filter(b => myEquity < b.val);
+  const currentBand = below.length === bands.length
+    ? { label:"Below median", color:"#EF4444" }
+    : below.length === 0
+    ? { label:"Top 1% nationally", color:"#EC4899" }
+    : { label:`Top ${below[0].pct} nationally`, color: below[0].color };
+
+  const rtpBands = [
+    { pct:"Top 1% · RTP", val:rtpP99, color:"#F59E0B" },
+    { pct:"Top 1% · National", val:bracket.p99, color:"#EC4899" },
+  ];
+
+  return (
+    <Panel title="🏦 Wealth Position — Net Worth / Equity by Age Group" accent="#8B5CF6">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:"#9CA3AF"}}>Age group:</span>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {WEALTH_BRACKETS.map(b=>(
+            <button key={b.label} onClick={()=>setAgeBracket(b.label)}
+              style={{background:ageBracket===b.label?"#7C3AED":"#1F2937",
+                border:`1px solid ${ageBracket===b.label?"#8B5CF6":"#374151"}`,
+                borderRadius:20,padding:"3px 10px",fontSize:11,
+                color:ageBracket===b.label?"#fff":"#9CA3AF",cursor:"pointer"}}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <span style={{fontSize:12,color:"#9CA3AF"}}>Your current net worth / equity:</span>
+        <div style={{display:"flex",alignItems:"center",background:"#0B1120",border:"1px solid #374151",borderRadius:6}}>
+          <span style={{padding:"0 3px 0 7px",color:"#6B7280",fontSize:12}}>$</span>
+          <input type="text" inputMode="decimal" value={equity} onChange={e=>setEquity(e.target.value)}
+            style={{width:120,background:"transparent",border:"none",outline:"none",color:"#F9FAFB",
+              fontSize:13,padding:"6px 7px 6px 0",textAlign:"right",fontVariantNumeric:"tabular-nums"}}/>
+        </div>
+        <div style={{background:currentBand.color+"22",border:`1px solid ${currentBand.color}44`,
+          borderRadius:20,padding:"3px 10px",fontSize:11,color:currentBand.color,fontWeight:700}}>
+          {currentBand.label}
+        </div>
+      </div>
+
+      <div style={{marginBottom:16}}>
+        {bands.map(b=>{
+          const isAbove = myEquity >= b.val;
+          const w = b.val > 0 ? Math.min((myEquity/b.val)*100, 100) : 100;
+          return (
+            <div key={b.pct} style={{marginBottom:10}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                <span style={{color:isAbove?b.color:"#4B5563"}}>{b.pct}</span>
+                <span style={{color:isAbove?b.color:"#4B5563",fontVariantNumeric:"tabular-nums"}}>
+                  {isAbove?"✓ ":""}{fmt(b.val)}
+                  {isAbove&&<span style={{color:"#6B7280",fontWeight:400}}> — you're {fmt(myEquity-b.val)} ahead</span>}
+                  {!isAbove&&<span style={{color:"#6B7280",fontWeight:400}}> — {fmt(b.val-myEquity)} to go</span>}
+                </span>
+              </div>
+              <div style={{height:5,background:"#1F2937",borderRadius:3,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${w}%`,
+                  background:isAbove?b.color:"#374151",borderRadius:3,transition:"width .3s"}}/>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        {rtpBands.map(b=>{
+          const gap = b.val - myEquity;
+          const pctOfWay = b.val > 0 ? Math.min(Math.round((myEquity/b.val)*100),100) : 100;
+          return (
+            <div key={b.pct} style={{background:"#0B1120",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>{b.pct}</div>
+              <div style={{fontSize:18,fontWeight:800,color:b.color,fontVariantNumeric:"tabular-nums",marginBottom:4}}>{fmt(b.val)}</div>
+              {gap > 0
+                ? <><div style={{fontSize:11,color:"#6B7280"}}>{fmt(gap)} away</div>
+                    <div style={{fontSize:11,color:b.color,fontWeight:600}}>{pctOfWay}% of the way there</div></>
+                : <div style={{fontSize:11,color:b.color,fontWeight:700}}>You're above this threshold ✓</div>
+              }
+              <ProgBar value={myEquity<0?0:myEquity} max={b.val} color={b.color} height={5}/>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{fontSize:10,color:"#4B5563",lineHeight:1.5}}>
+        Source: Federal Reserve Survey of Consumer Finances 2022. Net worth includes home equity, retirement accounts, investments, and other assets minus all debts. RTP top 1% estimated at ~65% of national threshold (Raleigh-Durham MSA wealth distribution). These are household net worth figures.
+      </p>
+    </Panel>
+  );
+}
+
 export default function BudgetApp() {
   const [setup,     setSetup]     = useState(D_SETUP);
   const [expenses,  setExp]       = useState(D_EXP);
   const [tab,       setTab]       = useState("paycheck");
   const [addingExp, setAddingExp] = useState(false);
+  const [ageBracket, setAgeBracket] = useState(DEFAULT_AGE_BRACKET);
   const [loaded,    setLoaded]    = useState(false);
 
   useEffect(()=>{
@@ -834,7 +957,8 @@ export default function BudgetApp() {
               </div>
             </Panel>
 
-            <PeerPanel gross={gross} fs={fs} th={th} taxes={T.total} retireMo={retMo} surplus={rem} etot={etot} otmo={otmo} fmt={fmt} pct={pct}/>
+            <PeerPanel gross={gross} fs={fs} th={th} taxes={T.total} retireMo={retMo} surplus={rem} etot={etot} otmo={otmo} fmt={fmt} pct={pct} ageBracket={ageBracket} setAgeBracket={setAgeBracket}/>
+            <WealthPanel ageBracket={ageBracket} setAgeBracket={setAgeBracket}/>
 
             <div style={{textAlign:"center",marginTop:4}}>
               <button onClick={()=>{setSetup(D_SETUP);setExp(D_EXP);}}
