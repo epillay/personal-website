@@ -487,9 +487,12 @@ function WealthPanel({ ageBracket, setAgeBracket }) {
     ? { label:"Top 1% nationally", color:"#EC4899" }
     : { label:`Top ${below[0].pct} nationally`, color: below[0].color };
 
+  const rtpP95 = Math.round(bracket.p95 * RTP_WEALTH_SCALE);
   const rtpBands = [
-    { pct:"Top 1% · RTP", val:rtpP99, color:"#F59E0B" },
-    { pct:"Top 1% · National", val:bracket.p99, color:"#EC4899" },
+    { pct:"Top 5% · RTP",      val:rtpP95,      color:"#3B82F6" },
+    { pct:"Top 5% · National", val:bracket.p95,  color:"#8B5CF6" },
+    { pct:"Top 1% · RTP",      val:rtpP99,       color:"#F59E0B" },
+    { pct:"Top 1% · National", val:bracket.p99,  color:"#EC4899" },
   ];
 
   return (
@@ -546,7 +549,7 @@ function WealthPanel({ ageBracket, setAgeBracket }) {
         })}
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:12}}>
         {rtpBands.map(b=>{
           const gap = b.val - myEquity;
           const pctOfWay = b.val > 0 ? Math.min(Math.round((myEquity/b.val)*100),100) : 100;
