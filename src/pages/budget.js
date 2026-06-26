@@ -13,12 +13,19 @@ const SS_RATE=.062, SS_BASE=184500, MC_RATE=.0145, AMC_RATE=.009;
 const AMC_THRESH = { single:200000, mfj:250000, hoh:200000 };
 const LIM_401K=24500, LIM_IRA=7500, NC_RATE=.0399;
 
-// 2024 IRS SOI data (latest available) — household income thresholds
-// Top 5%: ~$252k/yr  |  Top 1%: ~$652k/yr
-const PEERS = [
-  { label:"Top 5%",  gross:252000, color:"#F59E0B", retire401k: LIM_401K, retireIra: LIM_IRA },
-  { label:"Top 1%",  gross:652000, color:"#EC4899", retire401k: LIM_401K, retireIra: LIM_IRA },
+// Top 1% income thresholds by age group (national approx from IRS SOI / Fed SCF 2024)
+// RTP column scaled ~67% of national (Raleigh-Durham MSA income distribution estimate)
+const AGE_BRACKETS = [
+  { label:"25–29", national:200000, rtp:135000 },
+  { label:"30–34", national:350000, rtp:235000 },
+  { label:"35–39", national:500000, rtp:335000 },
+  { label:"40–44", national:650000, rtp:440000 },
+  { label:"45–49", national:750000, rtp:505000 },
+  { label:"50–54", national:800000, rtp:535000 },
+  { label:"55–59", national:820000, rtp:550000 },
+  { label:"60–64", national:780000, rtp:525000 },
 ];
+const DEFAULT_AGE_BRACKET = "30–34";
 
 const PRESET_CLR = {
   "Housing":"#6366F1","Food & Groceries":"#10B981","Transportation":"#F59E0B",
@@ -337,6 +344,109 @@ function AddExpenseForm({ onAdd, onCancel }) {
         </div>
       )}
     </div>
+  );
+}
+
+function PeerPanel({ gross, fs, th, taxes, retireMo, surplus, etot, otmo, fmt, pct }) {
+  const [ageBracket, setAgeBracket] = useState(DEFAULT_AGE_BRACKET);
+  const bracket = AGE_BRACKETS.find(b => b.label === ageBracket) || AGE_BRACKETS[1];
+
+  const peers = [
+    { label:"Top 1% · RTP",      gross: bracket.rtp,      color:"#F59E0B" },
+    { label:"Top 1% · National", gross: bracket.national,  color:"#EC4899" },
+  ];
+
+  const cols = [
+    { label:"You", gross, color:"#10B981",
+      th, taxes, retireMo, surplus, effectiveRate: taxes/gross||0 },
+    ...peers.map(p => {
+      const Tp = calcTaxes(p.gross, fs, LIM_401K, 0, false);
+      const thP = p.gross/12 - Tp.total/12 - LIM_401K/12 - otmo;
+      const iraMoP = LIM_IRA/12;
+      const surplusP = thP - etot - iraMoP;
+      return { label:p.label, gross:p.gross, color:p.color,
+        th:thP, taxes:Tp.total, retireMo:LIM_401K/12+iraMoP, surplus:surplusP,
+        effectiveRate:Tp.total/p.gross||0 };
+    }),
+  ];
+
+  const rows = [
+    { key:"Annual Income",       vals: cols.map(c=>fmt(c.gross)) },
+    { key:"Annual Taxes",        vals: cols.map(c=>fmt(c.taxes)) },
+    { key:"Effective Rate",      vals: cols.map(c=>pct(c.effectiveRate)) },
+    { key:"Monthly Take-Home",   vals: cols.map(c=>fmt(c.th)) },
+    { key:"Retirement /mo",      vals: cols.map(c=>fmt(c.retireMo)) },
+    { key:"Living Expenses /mo", vals: cols.map(()=>fmt(etot)) },
+    { key:"Surplus /mo",         vals: cols.map(c=>fmt(c.surplus)) },
+    { key:"Surplus /yr",         vals: cols.map(c=>fmt(c.surplus*12)) },
+  ];
+
+  return (
+    <Panel title="🏆 How You Stack Up — Top 1% by Age Group" accent="#F59E0B">
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <span style={{fontSize:12,color:"#9CA3AF"}}>Age group:</span>
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {AGE_BRACKETS.map(b=>(
+            <button key={b.label} onClick={()=>setAgeBracket(b.label)}
+              style={{background:ageBracket===b.label?"#2563EB":"#1F2937",
+                border:`1px solid ${ageBracket===b.label?"#3B82F6":"#374151"}`,
+                borderRadius:20,padding:"3px 10px",fontSize:11,
+                color:ageBracket===b.label?"#fff":"#9CA3AF",cursor:"pointer"}}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p style={{marginBottom:14,fontSize:11,color:"#6B7280",lineHeight:1.6}}>
+        Top 1% thresholds for age {ageBracket} — RTP: ~{fmt(bracket.rtp)}/yr · National: ~{fmt(bracket.national)}/yr.
+        Peer columns assume same filing status, same living expenses, 401k maxed ({fmt(LIM_401K)}/yr), Roth IRA maxed ({fmt(LIM_IRA)}/yr).
+      </p>
+
+      <div style={{display:"grid",gridTemplateColumns:`2fr ${cols.map(()=>"1fr").join(" ")}`,marginBottom:16}}>
+        <div style={{fontSize:11,color:"#4B5563",padding:"6px 0",borderBottom:"1px solid #1F2937"}}/>
+        {cols.map(c=>(
+          <div key={c.label} style={{fontSize:12,fontWeight:700,color:c.color,
+            padding:"6px 8px",borderBottom:"1px solid #1F2937",textAlign:"right"}}>{c.label}</div>
+        ))}
+        {rows.map(r=>[
+          <div key={r.key+"-l"} style={{fontSize:12,color:"#9CA3AF",padding:"6px 0",borderBottom:"1px solid #1F2937"}}>{r.key}</div>,
+          ...cols.map((c,i)=>(
+            <div key={r.key+c.label} style={{fontSize:12,fontWeight:600,color:c.color,
+              padding:"6px 8px",borderBottom:"1px solid #1F2937",textAlign:"right",
+              fontVariantNumeric:"tabular-nums"}}>{r.vals[i]}</div>
+          )),
+        ])}
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {peers.map((p,pi)=>{
+          const peer=cols[pi+1];
+          const surplusGap=(peer.surplus-surplus)*12;
+          return (
+            <div key={p.label} style={{background:"#0B1120",borderRadius:8,padding:"10px 12px"}}>
+              <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>vs {p.label}</div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                <span style={{color:"#6B7280"}}>Income gap</span>
+                <span style={{color:p.color,fontWeight:700}}>{fmt(p.gross-gross)}/yr more</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8}}>
+                <span style={{color:"#6B7280"}}>Annual surplus gap</span>
+                <span style={{color:surplusGap>0?p.color:"#EF4444",fontWeight:700}}>
+                  {surplusGap>0?"+":""}{fmt(surplusGap)}/yr
+                </span>
+              </div>
+              <ProgBar value={surplus<0?0:surplus} max={peer.surplus<1?1:peer.surplus} color={p.color} height={6}/>
+              <div style={{fontSize:10,color:"#6B7280",marginTop:4}}>
+                Your surplus is {peer.surplus>0?`${Math.round((surplus/peer.surplus)*100)}%`:"—"} of theirs
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{marginTop:12,fontSize:10,color:"#4B5563",lineHeight:1.5}}>
+        National thresholds from IRS SOI / Fed SCF 2024. RTP estimates scaled from Raleigh-Durham MSA income distribution (~67% of national top 1% threshold). Peer taxes use the same filing status & NC flat rate.
+      </p>
+    </Panel>
   );
 }
 
@@ -724,89 +834,7 @@ export default function BudgetApp() {
               </div>
             </Panel>
 
-            <Panel title="🏆 How You Stack Up — Top 5% & Top 1% of U.S. Households" accent="#F59E0B">
-              <p style={{margin:"0 0 14px",fontSize:11,color:"#6B7280",lineHeight:1.6}}>
-                Thresholds: top 5% ≈ $252k/yr · top 1% ≈ $652k/yr (2024 IRS SOI data).
-                Peer columns assume same filing status, same living expenses, 401k maxed per person, Roth IRA maxed per person.
-              </p>
-              {(()=>{
-                const cols = [
-                  { label:"You", gross, color:"#10B981",
-                    th, taxes: T.total, retireMo: retMo, surplus: rem },
-                  ...PEERS.map(p=>{
-                    const Tp = calcTaxes(p.gross, fs, p.retire401k, 0, false);
-                    const thP = p.gross/12 - Tp.total/12 - p.retire401k/12 - otmo;
-                    const iraMoP = p.retireIra/12;
-                    const surplusP = thP - etot - iraMoP;
-                    const retireMoP = p.retire401k/12 + iraMoP;
-                    return { label:p.label, gross:p.gross, color:p.color,
-                      th:thP, taxes:Tp.total, retireMo:retireMoP, surplus:surplusP,
-                      effectiveRate: Tp.total/p.gross };
-                  }),
-                ];
-                const myEffective = T.total/gross||0;
-                const rows = [
-                  { key:"Annual Income",    vals: cols.map(c=>fmt(c.gross)) },
-                  { key:"Annual Taxes",     vals: cols.map(c=>fmt(c.taxes)) },
-                  { key:"Effective Rate",   vals: cols.map((c,i)=>i===0?pct(myEffective):pct(c.taxes/c.gross||0)) },
-                  { key:"Monthly Take-Home",vals: cols.map(c=>fmt(c.th)) },
-                  { key:"Retirement /mo",   vals: cols.map(c=>fmt(c.retireMo)) },
-                  { key:"Living Expenses /mo", vals: cols.map(()=>fmt(etot)) },
-                  { key:"Surplus /mo",      vals: cols.map(c=>fmt(c.surplus)) },
-                  { key:"Surplus /yr",      vals: cols.map(c=>fmt(c.surplus*12)) },
-                ];
-                return (
-                  <>
-                    <div style={{display:"grid",gridTemplateColumns:`2fr ${cols.map(()=>"1fr").join(" ")}`,gap:0,marginBottom:16}}>
-                      <div style={{fontSize:11,color:"#4B5563",padding:"6px 0",borderBottom:"1px solid #1F2937"}}/>
-                      {cols.map(c=>(
-                        <div key={c.label} style={{fontSize:12,fontWeight:700,color:c.color,padding:"6px 8px",
-                          borderBottom:"1px solid #1F2937",textAlign:"right"}}>{c.label}</div>
-                      ))}
-                      {rows.map(r=>[
-                        <div key={r.key+"-l"} style={{fontSize:12,color:"#9CA3AF",padding:"6px 0",borderBottom:"1px solid #1F2937"}}>{r.key}</div>,
-                        ...cols.map((c,i)=>(
-                          <div key={r.key+c.label} style={{fontSize:12,fontWeight:600,color:c.color,
-                            padding:"6px 8px",borderBottom:"1px solid #1F2937",textAlign:"right",
-                            fontVariantNumeric:"tabular-nums"}}>{r.vals[i]}</div>
-                        )),
-                      ])}
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:`repeat(${cols.length-1},1fr)`,gap:10}}>
-                      {PEERS.map((p,pi)=>{
-                        const peer = cols[pi+1];
-                        const surplusGap = (peer.surplus - rem)*12;
-                        const incomeGap  = p.gross - gross;
-                        return (
-                          <div key={p.label} style={{background:"#0B1120",borderRadius:8,padding:"10px 12px"}}>
-                            <div style={{fontSize:10,color:"#6B7280",textTransform:"uppercase",letterSpacing:"1px",marginBottom:6}}>
-                              vs {p.label}
-                            </div>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-                              <span style={{color:"#6B7280"}}>Income gap</span>
-                              <span style={{color:p.color,fontWeight:700}}>{fmt(incomeGap)}/yr more</span>
-                            </div>
-                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:8}}>
-                              <span style={{color:"#6B7280"}}>Annual surplus gap</span>
-                              <span style={{color:surplusGap>0?p.color:"#EF4444",fontWeight:700}}>
-                                {surplusGap>0?"+":""}{fmt(surplusGap)}/yr
-                              </span>
-                            </div>
-                            <ProgBar value={rem<0?0:rem} max={peer.surplus<0?1:peer.surplus} color={p.color} height={6}/>
-                            <div style={{fontSize:10,color:"#6B7280",marginTop:4}}>
-                              Your surplus is {peer.surplus>0?`${Math.round((rem/peer.surplus)*100)}%`:"—"} of theirs
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p style={{margin:"12px 0 0",fontSize:10,color:"#4B5563",lineHeight:1.5}}>
-                      Peer taxes use the same filing status & NC flat rate. Retirement assumes one earner maxing 401k ({fmt(LIM_401K)}/yr) + Roth IRA ({fmt(LIM_IRA)}/yr). Living expenses held constant so surplus difference is purely income/tax driven.
-                    </p>
-                  </>
-                );
-              })()}
-            </Panel>
+            <PeerPanel gross={gross} fs={fs} th={th} taxes={T.total} retireMo={retMo} surplus={rem} etot={etot} otmo={otmo} fmt={fmt} pct={pct}/>
 
             <div style={{textAlign:"center",marginTop:4}}>
               <button onClick={()=>{setSetup(D_SETUP);setExp(D_EXP);}}
