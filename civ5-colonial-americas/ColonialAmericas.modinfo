@@ -3,7 +3,7 @@
 	<Properties>
 		<Name>Colonial Americas</Name>
 		<Teaser>A fixed scenario map of the Americas for the colonial era</Teaser>
-		<Description>Adds a custom map script that lays out a stylized Americas continent (Canada down through northern South America) with fixed starting positions for Spain, England, France, and America, plus suggested City-State placements standing in for native nations (Iroquois, Cherokee, Huron, Sioux, Powhatan, Taino, and more). Select "Colonial Americas" from the map script dropdown when starting a new game.</Description>
+		<Description>Adds a regenerating map script that lays out a stylized Americas continent (Canada down through northern South America) with fixed starting positions for Spain, England, France, America, Aztec, Iroquois, Maya, and Shoshone, plus suggested City-State placements standing in for native nations that aren't full Civ 5 civs (Cherokee, Sioux, Powhatan, Huron, Taino, and more). Coastline, mountains, climate, and forests regenerate every game from fractal noise. Select "Colonial Americas" from the map script dropdown when starting a new game.</Description>
 		<Authors>epillay</Authors>
 		<SpecialThanks></SpecialThanks>
 		<MinCompatibleSaveVersion>0</MinCompatibleSaveVersion>

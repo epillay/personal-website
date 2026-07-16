@@ -132,28 +132,41 @@ local function GetBand(y)
 end
 
 ------------------------------------------------------------------------------
--- Fixed starting positions for the colonial powers, keyed by CivilizationType.
--- America is included as a separate, independent start (not spawned later)
--- so all four majors can be played from turn 1 -- adjust FIXED_STARTS or pull
--- civs out of the pre-game civ list if you'd rather America emerge from a
--- British colony instead. Unlike the terrain, these stay fixed every game --
--- they're the historical anchor the rest of the map regenerates around.
+-- Fixed starting positions, keyed by CivilizationType. Covers both the four
+-- colonial powers AND the four native nations that are real, fully playable
+-- Civ 5 civilizations rather than City-State stand-ins: Aztec (Montezuma,
+-- base game), Iroquois (Hiawatha, base game), Maya (Pacal, requires Gods &
+-- Kings), and Shoshone (Pocatello, requires Brave New World). If a player
+-- slot isn't set to one of these civs (or the DLC isn't installed so the civ
+-- was never selectable), that entry is simply never matched in
+-- StartPlotSystem -- no crash, the slot just falls through to the default
+-- start finder.
+--
+-- Unlike the terrain, these stay fixed every game -- they're the historical
+-- anchor the rest of the map regenerates around. Coordinates are also kept
+-- at least 6 tiles from each band's west edge (ROCKIES_CORRIDOR_WIDTH is 5)
+-- so a fixed start can never land on a fractal-generated mountain tile.
 ------------------------------------------------------------------------------
 
 local FIXED_STARTS = {
-	CIVILIZATION_SPAIN   = {x = 20, y = 17}, -- Gulf coast of Mexico, near Veracruz
-	CIVILIZATION_ENGLAND = {x = 38, y = 24}, -- Chesapeake / mid-Atlantic coast
-	CIVILIZATION_FRANCE  = {x = 34, y = 29}, -- St. Lawrence valley, Quebec
-	CIVILIZATION_AMERICA = {x = 30, y = 21}, -- Ohio valley frontier
+	CIVILIZATION_SPAIN    = {x = 20, y = 17}, -- Gulf coast of Mexico, near Veracruz
+	CIVILIZATION_ENGLAND  = {x = 38, y = 24}, -- Chesapeake / mid-Atlantic coast
+	CIVILIZATION_FRANCE   = {x = 34, y = 29}, -- St. Lawrence valley, Quebec
+	CIVILIZATION_AMERICA  = {x = 30, y = 21}, -- Ohio valley frontier
+	CIVILIZATION_AZTEC    = {x = 24, y = 14}, -- Central Mexican highlands (Valley of Mexico)
+	CIVILIZATION_IROQUOIS = {x = 30, y = 25}, -- Great Lakes / upstate NY, south of Lake Ontario
+	CIVILIZATION_MAYA     = {x = 25, y = 11}, -- Yucatan / Guatemalan highlands
+	CIVILIZATION_SHOSHONE = {x = 17, y = 21}, -- Great Basin / Rocky Mountain foothills
 }
 
--- Suggested City-State sites standing in for native nations. Civ V can't
--- rename a City-State's underlying personality/type without an extra civ
--- mod, but you CAN rename the city itself in World Builder -- rename these
--- to match after generating the map (e.g. rename the city-state city at
--- 37,26 to "Onondaga" for an Iroquois stand-in).
+-- Suggested City-State sites standing in for native nations that DON'T have
+-- a dedicated Civ 5 civilization (Aztec/Iroquois/Maya/Shoshone are handled
+-- as real civs above instead). Civ V can't rename a City-State's underlying
+-- personality/type without an extra civ mod, but you CAN rename the city
+-- itself in World Builder -- rename these to match after generating the map
+-- (e.g. rename the city-state city at 42,21 to "Werowocomoco" for a
+-- Powhatan stand-in).
 local CITY_STATE_SITES = {
-	{x = 37, y = 26, note = "Iroquois / Haudenosaunee (Great Lakes / upstate NY)"},
 	{x = 35, y = 21, note = "Shawnee (Ohio valley)"},
 	{x = 42, y = 21, note = "Powhatan (Chesapeake)"},
 	{x = 38, y = 19, note = "Cherokee (southern Appalachians)"},
@@ -161,7 +174,6 @@ local CITY_STATE_SITES = {
 	{x = 22, y = 20, note = "Comanche (southern plains)"},
 	{x = 12, y = 20, note = "Apache (southwest desert)"},
 	{x = 30, y = 29, note = "Huron / Wendat (Ontario)"},
-	{x = 22, y = 12, note = "Maya (Yucatan / Central America)"},
 	{x = 35, y = 15, note = "Taino (Cuba / Caribbean)"},
 	{x = 21, y = 5,  note = "Muisca / Inca frontier (northern Andes)"},
 }

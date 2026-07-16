@@ -2,8 +2,11 @@
 
 A custom map script for Civilization V (Gods & Kings / Brave New World) for
 a colonial-era Americas game: Spain, England, France, and America all start
-at fixed, historically-flavored positions, and a set of City-State sites is
-suggested to stand in for native nations.
+at fixed, historically-flavored positions, alongside four native nations
+that are real, fully playable Civ 5 civilizations — Aztec, Iroquois, Maya,
+and Shoshone — also given fixed starts. City-State sites are suggested on
+top of that for native peoples that don't have a dedicated Civ 5 civ
+(Cherokee, Sioux, Powhatan, Huron, Comanche, Apache, Taino, and more).
 
 Unlike a WorldBuilder scenario save, the land itself **regenerates every
 game** the same way stock scripts (Continents, Pangaea, Fractal) do: the
@@ -12,8 +15,8 @@ Civ 5's own coherent fractal noise, each thresholded per region so a given
 range/belt/forest clusters into one recognizable shape — the Rockies stay
 a mountain corridor along the west coast, the Great Plains stay a dry
 interior belt, the Canadian boreal forest stays a big contiguous forest —
-while the exact extent, peaks, and patches differ every game. Only the four
-colonial powers' start coordinates and the Great Lakes are pinned down
+while the exact extent, peaks, and patches differ every game. Only the
+eight fixed civ start coordinates and the Great Lakes are pinned down
 exactly; everything else regenerates.
 
 This was hand-written from scratch, not adapted from a tested Firaxis
@@ -35,10 +38,13 @@ below before you assume something is broken.
    prompted.
 4. Start a new **Single Player** game → set **Map Script** to
    **Colonial Americas** in the advanced setup options.
-5. Add Spain, England, France, and America (and any City-States) to the
-   player list. Other civs will fall back to the default start-position
-   finder rather than failing outright, but the fixed historical starts
-   only fire for those four.
+5. Add players for Spain, England, France, America, Aztec, Iroquois, Maya,
+   and Shoshone (and any City-States) to get all eight fixed historical
+   starts. **Maya requires the Gods & Kings expansion and Shoshone requires
+   Brave New World** — if you don't own/enable the relevant expansion, that
+   civ simply won't be selectable in the player list, and this mod doesn't
+   need it to be present. Any other civ you add instead falls back to the
+   default start-position finder rather than failing outright.
 
 ## What it does
 
@@ -97,17 +103,29 @@ below before you assume something is broken.
   jungle/marsh (Caribbean, Central America); Fur/Deer in forest and
   tundra/snow (the northern fur trade); Silver in desert (Mexican/Andean
   silver country).
-- `FIXED_STARTS` places Spain near Veracruz, England on the Chesapeake,
-  France at Quebec, and America in the Ohio valley — all four playable
-  from turn 1 rather than America emerging later from a British colony,
-  and fixed every game since they're the scenario's historical anchor.
-  Change the coordinates (or delete an entry) to retune this.
-- `CITY_STATE_SITES` lists eleven suggested spots for City-States
-  representing native nations (Iroquois, Shawnee, Powhatan, Cherokee,
-  Sioux, Comanche, Apache, Huron, Maya, Taino, and a Muisca/Inca-frontier
-  site). Civ 5 can't rename a City-State's underlying personality without
-  an extra mod, but **you can rename the city itself** in World Builder —
-  do that after generating the map to label each site.
+- `FIXED_STARTS` covers eight civs, all playable from turn 1 and fixed every
+  game since they're the scenario's historical anchor:
+  - **Spain** near Veracruz, **England** on the Chesapeake, **France** at
+    Quebec, **America** in the Ohio valley (rather than emerging later from
+    a British colony).
+  - **Aztec** (Montezuma, base game) in the central Mexican highlands,
+    **Iroquois** (Hiawatha, base game) in the Great Lakes/upstate NY,
+    **Maya** (Pacal, requires Gods & Kings) in the Yucatan/Guatemalan
+    highlands, and **Shoshone** (Pocatello, requires Brave New World) in the
+    Great Basin/Rocky Mountain foothills — these are real playable Civ 5
+    civilizations, not City-State stand-ins, so they get proper leaders,
+    unique units, and unique buildings.
+  - Every coordinate here is at least 6 tiles from its band's west edge
+    (`ROCKIES_CORRIDOR_WIDTH` is 5), which guarantees zero chance of
+    generating on top of a fractal-placed mountain tile (see `GetElevation`)
+    — keep any new fixed start you add at that same distance or greater.
+  - Change the coordinates (or delete an entry) to retune this.
+- `CITY_STATE_SITES` lists nine suggested spots for City-States representing
+  native nations that AREN'T real Civ 5 civilizations (Shawnee, Powhatan,
+  Cherokee, Sioux, Comanche, Apache, Huron, Taino, and a Muisca/Inca-frontier
+  site). Civ 5 can't rename a City-State's underlying personality without an
+  extra mod, but **you can rename the city itself** in World Builder — do
+  that after generating the map to label each site.
 
 ### Why Cotton/Dye instead of Tobacco
 
