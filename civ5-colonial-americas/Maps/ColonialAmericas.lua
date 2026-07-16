@@ -97,6 +97,17 @@ local EXTRA_LAND = {
 	{49,17},{50,17},{51,17},{49,16},
 	-- Puerto Rico
 	{53,16},
+	-- Jamaica (south of Cuba, a real English sugar colony -- given a proper
+	-- multi-tile footprint rather than a 1-tile speck so it can host an
+	-- actual city)
+	{44,17},{45,17},{44,18},{45,18},
+	-- Barbados (isolated further east in the Atlantic than the rest of the
+	-- Antilles chain -- small but was one of the single most profitable
+	-- English sugar colonies)
+	{58,14},{59,14},
+	-- Cape Cod (Massachusetts) -- Plymouth/Massachusetts Bay landmark, a
+	-- small hooked peninsula off the New England coast near England's start
+	{56,32},{57,32},{58,32},{57,33},
 }
 
 -- Great Lakes: carved out of the continental band as freshwater lake plots

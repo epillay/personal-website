@@ -58,8 +58,14 @@ below before you assume something is broken.
 - **Coastline (`GeneratePlotTypes`)**: `BANDS` defines a west/east column
   bound per row — the overall Americas envelope, Canada down through
   northern South America — plus explicit extra plots for Florida, Baja
-  California, Cuba, the Bahamas, Hispaniola, and Puerto Rico
-  (`EXTRA_LAND`). But the *exact* land/water split isn't hardcoded: each
+  California, Cuba, the Bahamas, Hispaniola, Puerto Rico, Jamaica, Barbados,
+  and Cape Cod (`EXTRA_LAND`). Jamaica and Cuba get a proper multi-tile
+  footprint (enough to host an actual city) since they were historically
+  major English/Spanish colonies; Puerto Rico, the Bahamas, and Barbados
+  stay small (1-2 tiles) since Civ 5 only needs one land tile to found a
+  city and these were minor by comparison — still enough to matter as a
+  naval chokepoint or a City-State seat, just not a serious settlement
+  target on their own. But the *exact* land/water split isn't hardcoded: each
   plot samples Civ 5's real coherent fractal noise
   (`FractalWorld:GetHeight`) against a threshold that's strict deep inside
   a band (almost always land) and loose near a band's edge or an island
