@@ -54,20 +54,29 @@ local MAP_HEIGHT = 44  -- y: 0 = south (northern S. America) .. 43 = north (Arct
 -- edge / how wide is this band" geometry from this same table.
 ------------------------------------------------------------------------------
 
+-- `coast` is the width of flat Pacific lowland between the actual coastline
+-- (`west`) and where the Rockies/Sierra Madre/Andes corridor begins (see
+-- GetElevation) -- a real West Coast (California's Central Valley + Coast
+-- Ranges being the clearest example) rather than mountains dropping straight
+-- into the ocean. Widths are loosely calibrated to real geography: wider
+-- through the US/Mexico Pacific coast where a real coastal lowland exists,
+-- narrower through Canada's fjord-like Pacific coast, the Central American
+-- isthmus (already too narrow for much of one), and the Andes (which really
+-- do plunge close to the Pacific in South America).
 local BANDS = {
-	{yMin = 42, yMax = 43, west = 13, east = 52}, -- Arctic Canada / Alaska
-	{yMin = 38, yMax = 40, west = 8,  east = 57}, -- Northern Canada
-	{yMin = 34, yMax = 36, west = 10, east = 56}, -- Central Canada / Hudson Bay area
-	{yMin = 30, yMax = 33, west = 12, east = 55}, -- Great Lakes / US-Canada border
-	{yMin = 26, yMax = 29, west = 13, east = 52}, -- US Midwest / Northeast
-	{yMin = 22, yMax = 25, west = 16, east = 48}, -- US South / Gulf coast (north shore)
-	{yMin = 20, yMax = 21, west = 20, east = 39}, -- Northern Mexico / Texas taper
-	{yMin = 17, yMax = 18, west = 22, east = 35}, -- Central Mexico
-	{yMin = 14, yMax = 16, west = 25, east = 33}, -- Southern Mexico / Guatemala
-	{yMin = 12, yMax = 13, west = 26, east = 30}, -- Central American isthmus (narrowest)
-	{yMin = 9,  yMax = 10, west = 25, east = 34}, -- Panama / Colombia widening
-	{yMin = 5,  yMax = 8,  west = 21, east = 38}, -- Venezuela / Colombia coast
-	{yMin = 0,  yMax = 4,  west = 18, east = 40}, -- Northern edge of S. America (Ecuador/Peru/Brazil coast)
+	{yMin = 42, yMax = 43, west = 8,  east = 52, coast = 5}, -- Arctic Canada / Alaska
+	{yMin = 38, yMax = 40, west = 4,  east = 57, coast = 4}, -- Northern Canada
+	{yMin = 34, yMax = 36, west = 6,  east = 56, coast = 4}, -- Central Canada / Hudson Bay area
+	{yMin = 30, yMax = 33, west = 6,  east = 55, coast = 6}, -- Great Lakes / US-Canada border
+	{yMin = 26, yMax = 29, west = 5,  east = 52, coast = 8}, -- US Midwest / Northeast
+	{yMin = 22, yMax = 25, west = 9,  east = 48, coast = 7}, -- US South / Gulf coast (north shore)
+	{yMin = 20, yMax = 21, west = 14, east = 39, coast = 6}, -- Northern Mexico / Texas taper
+	{yMin = 17, yMax = 18, west = 17, east = 35, coast = 5}, -- Central Mexico
+	{yMin = 14, yMax = 16, west = 21, east = 33, coast = 4}, -- Southern Mexico / Guatemala
+	{yMin = 12, yMax = 13, west = 24, east = 30, coast = 2}, -- Central American isthmus (narrowest)
+	{yMin = 9,  yMax = 10, west = 22, east = 34, coast = 3}, -- Panama / Colombia widening
+	{yMin = 5,  yMax = 8,  west = 18, east = 38, coast = 3}, -- Venezuela / Colombia coast
+	{yMin = 0,  yMax = 4,  west = 15, east = 40, coast = 3}, -- Northern edge of S. America (Ecuador/Peru/Brazil coast)
 }
 
 -- Extra land anchors added on top of the bands: peninsulas and islands that a
@@ -79,7 +88,7 @@ local EXTRA_LAND = {
 	{52,25},{53,25},{54,25},{55,25},{52,23},{53,23},{54,23},{55,23},{56,23},
 	{53,22},{54,22},{55,22},{56,22},{55,21},{56,21},{56,20},
 	-- Baja California (west of the Gulf of California gap)
-	{12,26},{12,27},{10,27},{10,29},{12,29},{12,30},
+	{4,26},{4,27},{2,27},{2,29},{4,29},{6,30},
 	-- Cuba
 	{43,20},{44,20},{45,20},{46,20},{47,20},{48,20},
 	-- Bahamas
@@ -261,23 +270,28 @@ local function GetLocalWaterPercent(x, y)
 end
 
 ------------------------------------------------------------------------------
--- Elevation: the Rockies/Sierra Madre/Andes run as a corridor along the west
--- edge of each band -- fixed in rough position and width (so "the Rockies"
--- stay the Rockies), with the exact peaks/foothills within that corridor
--- coming from a coherent noise field so they cluster into ridge-like shapes
--- rather than a scattered checkerboard, and shift a little every game. A
--- lower, narrower Appalachian hill line runs on the eastern US only, using
--- an independent noise field so it doesn't move in lockstep with the Rockies.
+-- Elevation: the Rockies/Sierra Madre/Andes run as a corridor -- fixed in
+-- rough position and width (so "the Rockies" stay the Rockies) -- starting
+-- `band.coast` tiles east of the actual coastline, which is what leaves a
+-- flat West Coast lowland (California's Central Valley being the clearest
+-- real-world example) between the ocean and the mountains instead of peaks
+-- dropping straight into the sea. The exact peaks/foothills within the
+-- corridor come from a coherent noise field so they cluster into ridge-like
+-- shapes rather than a scattered checkerboard, and shift a little every
+-- game. A lower, narrower Appalachian hill line runs on the eastern US only,
+-- using an independent noise field so it doesn't move in lockstep with the
+-- Rockies.
 ------------------------------------------------------------------------------
 
-local ROCKIES_CORRIDOR_WIDTH = 7 -- tiles east of band.west the corridor can reach into
+local ROCKIES_CORRIDOR_WIDTH = 7 -- tiles past the coastal shelf the corridor can reach into
 
 local function GetElevation(x, y, band)
-	local distFromWest = x - band.west
-	if distFromWest <= ROCKIES_CORRIDOR_WIDTH then
-		-- corridorBias: ~100% chance of being "elevated ground" right at the
-		-- edge, fading out toward the corridor's inland limit.
-		local corridorBias = math.max(0, 100 - distFromWest * (100 / (ROCKIES_CORRIDOR_WIDTH + 1)))
+	local mountainStart = band.west + (band.coast or 0)
+	local distFromMountainStart = x - mountainStart
+	if distFromMountainStart >= 0 and distFromMountainStart <= ROCKIES_CORRIDOR_WIDTH then
+		-- corridorBias: ~100% chance of being "elevated ground" right where
+		-- the coastal shelf ends, fading out toward the corridor's inland limit.
+		local corridorBias = math.max(0, 100 - distFromMountainStart * (100 / (ROCKIES_CORRIDOR_WIDTH + 1)))
 		local h = g_RockiesFractal:GetHeight(x, y)
 		local elevatedThreshold = g_RockiesFractal:GetHeightFromPercent(100 - corridorBias)
 		if h >= elevatedThreshold then
@@ -304,19 +318,30 @@ local function GetElevation(x, y, band)
 end
 
 ------------------------------------------------------------------------------
--- Climate: an aridity gradient rooted in real rain-shadow geography -- driest
--- right next to the western mountain spine, fading to humid a few tiles
--- east, which is what produces a Great Plains/Mexican-plateau/Andean-
--- highland dry belt without hardcoding it as a fixed rectangle. Canada's
--- boreal band and the deep tropics are pulled back toward humid regardless
--- of mountain distance, since real boreal forest and rainforest both stay
--- wet independent of a rain-shadow effect. The noise field then clusters the
--- exact dry patches into contiguous regions instead of speckling them.
+-- Climate: an aridity gradient rooted in real rain-shadow geography. The
+-- coastal shelf itself (west of the mountains) stays mild/humid -- like
+-- California's actual Mediterranean coastal climate -- with the driest
+-- conditions instead sitting just EAST of the mountain corridor (the real
+-- rain-shadow effect: the Great Basin, the Sonoran desert, the Mexican
+-- plateau, the Andean highlands all sit on the leeward side of their range),
+-- fading back to humid further east still. That's what produces a Great
+-- Plains/Mexican-plateau/Andean-highland dry belt as an emergent shape
+-- instead of a hardcoded box. Canada's boreal band and the deep tropics are
+-- pulled back toward humid regardless of mountain distance, since real
+-- boreal forest and rainforest both stay wet independent of a rain-shadow
+-- effect. The noise field then clusters the exact dry patches into
+-- contiguous regions instead of speckling them.
 ------------------------------------------------------------------------------
 
 local function GetAridPercent(x, y, band)
-	local distFromWest = x - band.west
-	local rainShadow = math.max(0, 55 - distFromWest * 4.6) -- ~55% at the mountains, 0 by ~12 tiles east
+	local mountainStart = band.west + (band.coast or 0)
+	local distFromMountains = x - mountainStart
+	local rainShadow
+	if distFromMountains < 0 then
+		rainShadow = 12 -- coastal shelf: mild, mostly humid (e.g. California's Mediterranean coast)
+	else
+		rainShadow = math.max(0, 55 - distFromMountains * 4.6) -- ~55% right past the mountains, 0 by ~12 tiles further east
+	end
 	if y >= 30 then
 		rainShadow = rainShadow * 0.3 -- boreal Canada
 	elseif y < 12 then

@@ -67,9 +67,19 @@ below before you assume something is broken.
   given island/peninsula appears at all, differ every game while the
   overall shape stays recognizable. The Great Lakes (`LAKE_PLOTS`) are the
   one exception — kept fixed as a landmark.
+- **West Coast (`band.coast`)**: each band has a flat coastal shelf between
+  the actual coastline and where the mountains start — California's Central
+  Valley/Coast Ranges being the clearest real-world example — rather than
+  mountains dropping straight into the Pacific. Shelf width varies per band
+  (wider through the US/Mexico coast where a real coastal lowland exists,
+  narrower through Canada's fjord-like coast and the Andes, which really do
+  plunge close to the Pacific in South America). Shoshone and Apache sit just
+  past the mountains on the *inland* side, which now lines up even better
+  with reality — the Great Basin and Sonoran desert are both rain-shadow
+  regions on the leeward side of a mountain range, not coastal.
 - **Elevation (`GetElevation`)**: the Rockies/Sierra Madre/Andes run as a
-  fixed-position, fixed-width *corridor* along the west edge of each band —
-  so the range is always roughly there — but which plots within that
+  fixed-position, fixed-width *corridor* starting where the coastal shelf
+  ends — so the range is always roughly there — but which plots within that
   corridor become full `MOUNTAIN` vs. `HILLS` vs. fade out to flat comes from
   a dedicated noise field (`g_RockiesFractal`) thresholded by distance into
   the corridor. That noise field is what makes mountains cluster into
@@ -78,11 +88,13 @@ below before you assume something is broken.
   a second, independent noise field (`g_AppalachianFractal`) so the two
   ranges don't move in lockstep.
 - **Climate (`GetClimateBand`/`GetAridPercent`)**: aridity is modeled as a
-  rain-shadow gradient — driest right next to the western mountains, fading
-  to humid a few tiles east — rather than a fixed rectangle. That's what
-  produces a Great Plains/Mexican-plateau/Andean-highland dry belt as an
-  emergent shape instead of a hardcoded box, the same way stock Civ 5
-  terrain generation derives climate from geography + noise rather than
+  rain-shadow gradient centered on the mountains, not the coastline — the
+  coastal shelf itself stays mild/humid (California's actual Mediterranean
+  climate), with the driest conditions sitting just *east* of the mountain
+  corridor, fading back to humid further inland still. That's what produces
+  a Great Plains/Mexican-plateau/Andean-highland dry belt as an emergent
+  shape instead of a hardcoded box, the same way stock Civ 5 terrain
+  generation derives climate from geography + noise rather than
   hand-painting regions. The belt is pulled back toward humid in Canada's
   boreal band and the deep tropics, where real forest/rainforest stays wet
   regardless of rain shadow. A third noise field (`g_ClimateFractal`) then
@@ -128,10 +140,13 @@ below before you assume something is broken.
   - Iroquois in particular sits further west within the Great Lakes band
     than its real historical (upstate NY) location — a deliberate trade of
     geographic precision for breathing room from England/France/America.
-  - Every coordinate here is at least 8 tiles from its band's west edge
-    (`ROCKIES_CORRIDOR_WIDTH` is 7), which guarantees zero chance of
+  - Every coordinate here is at least 8 tiles east of where its band's
+    mountain corridor starts (`band.west + band.coast`, with
+    `ROCKIES_CORRIDOR_WIDTH` at 7), which guarantees zero chance of
     generating on top of a fractal-placed mountain tile (see `GetElevation`)
-    — keep any new fixed start you add at that same distance or greater.
+    — keep any new fixed start you add at that same distance or greater, OR
+    place it on the coastal shelf itself (`band.west` to
+    `band.west + band.coast - 1`), which is unconditionally flat.
   - Change the coordinates (or delete an entry) to retune this.
 - `CITY_STATE_SITES` lists seven suggested spots for City-States representing
   native nations that AREN'T real Civ 5 civilizations: Shawnee, Powhatan,
@@ -161,23 +176,32 @@ add it to the `AMERICAN_SOUTH` options list in `AddResources`.
 Everything geographic lives in a handful of tables/functions near the top of
 the Lua file:
 
-- `BANDS` — one row-range with a west/east column bound each. This is the
-  coastline envelope, and also what every other region (mountains, climate,
-  forests) measures its "distance from the west edge" against. Widen/narrow
-  a zone by editing its `west`/`east` values. `GetLocalWaterPercent`
-  controls how loose/strict the fractal threshold is near a band's edge —
-  raise those numbers for a wigglier, more island-prone coast.
+- `BANDS` — one row-range with a west/east column bound each, plus a `coast`
+  width (see below). `west`/`east` are the coastline envelope, and also what
+  every other region (mountains, climate, forests) measures its "distance
+  from the coast" against. Widen/narrow a zone by editing its `west`/`east`
+  values. `GetLocalWaterPercent` controls how loose/strict the fractal
+  threshold is near a band's edge — raise those numbers for a wigglier,
+  more island-prone coast.
+- `band.coast` — the width of flat lowland between the actual coastline
+  (`west`) and where the mountain corridor starts (see West Coast, above).
+  Widen it for a bigger coastal plain (more California-like), narrow/zero it
+  for mountains that drop straight into the ocean (more like Canada's real
+  Pacific coast or the Andes).
 - `EXTRA_LAND` — explicit `{x, y}` anchors for peninsulas/islands that a
   single band per row can't express.
 - `LAKE_PLOTS` — plots carved out as Great Lakes.
-- `ROCKIES_CORRIDOR_WIDTH` and `GetElevation` — how many tiles east of each
-  band's west edge the mountain corridor can reach, and the peak/hills
-  split within it. The Appalachian line (`y >= 22 and y <= 36`, `distFromEast`
-  between 7 and 12) is defined directly inside `GetElevation`.
+- `ROCKIES_CORRIDOR_WIDTH` and `GetElevation` — how many tiles past
+  `band.west + band.coast` the mountain corridor can reach, and the
+  peak/hills split within it. The Appalachian line (`y >= 22 and y <= 36`,
+  `distFromEast` between 7 and 12) is defined directly inside `GetElevation`
+  and is unaffected by `coast` (it's measured from the *east* edge).
 - `GetAridPercent` — the rain-shadow formula behind the Great
-  Plains/Mexican-plateau/Andean dry belt: `55 - distFromWest * 4.6`, pulled
-  toward humid in Canada (`* 0.3`) and the tropics (`* 0.4`). Tune the base
-  55/4.6 numbers to make the belt wider/narrower/drier/wetter.
+  Plains/Mexican-plateau/Andean dry belt, now centered on the mountains
+  rather than the coastline: flat `12` on the coastal shelf (mild/humid),
+  then `55 - distFromMountains * 4.6` once past the mountains, pulled toward
+  humid in Canada (`* 0.3`) and the tropics (`* 0.4`). Tune the base 55/4.6
+  numbers to make the belt wider/narrower/drier/wetter.
 - `MARSH_ZONES` — the Gulf coast/Mississippi delta and Florida wetland
   zones; add more `{xMin, xMax, yMin, yMax}` entries for other real-world
   marsh regions (e.g. the Yucatan lowlands) if you want them too.
