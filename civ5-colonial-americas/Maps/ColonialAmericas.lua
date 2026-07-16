@@ -3,12 +3,17 @@
 --
 -- A regenerating map script for Civilization V (Gods & Kings / Brave New
 -- World). The overall shape -- Canada down through northern South America --
--- is fixed so it stays recognizable, but the exact coastline, elevation,
--- terrain mix, marsh/forest coverage, and resource placement/density are all
+-- is fixed so it stays recognizable, but the coastline, elevation, terrain
+-- mix, forest/jungle coverage, and resource placement/density are all
 -- re-rolled from Civ 5's own fractal noise and RNG each time you start a new
--- game, the same way stock scripts like Continents or Fractal do. Only the
--- four colonial powers' starting positions are pinned down, since those are
--- meant to be historically fixed for the scenario.
+-- game, the same way stock scripts like Continents or Fractal do. Regions
+-- like the Rockies, the Great Plains, and the Canadian boreal forest are
+-- built the same way real Civ 5 terrain is: a coherent noise field
+-- thresholded per region, so a given range/biome clusters into one
+-- recognizable shape instead of "salt and pepper" independent-per-tile
+-- randomness -- while still coming out slightly different every game. Only
+-- the four colonial powers' starting positions and the Great Lakes are
+-- pinned down exactly.
 --
 -- This is a from-scratch, hand-written script rather than a tweak of a
 -- stock Firaxis map script, so treat it as a first draft: load it in-game,
@@ -36,7 +41,9 @@ local MAP_HEIGHT = 34  -- y: 0 = south (northern S. America) .. 33 = north (Arct
 -- GetLocalWaterPercent/GeneratePlotTypes below) decides the exact land/water
 -- split within and around these bounds, so the coast wiggles differently
 -- every game while staying inside the overall shape. Edit these two numbers
--- per zone to reshape that overall envelope.
+-- per zone to reshape that overall envelope. Every other region below
+-- (mountains, climate, forests) also reads its "how close to the western
+-- edge / how wide is this band" geometry from this same table.
 ------------------------------------------------------------------------------
 
 local BANDS = {
@@ -80,21 +87,18 @@ local LAKE_PLOTS = {
 	{25,24},{26,24},{27,24},{25,23},{26,25},{28,24},
 }
 
-------------------------------------------------------------------------------
--- Regional climate zones used by GenerateTerrain/AddFeatures below.
-------------------------------------------------------------------------------
-
--- Great Plains / Midwest rain-shadow belt: drier than the East Coast at the
--- same latitude. Real-world Kansas/Nebraska read as semi-arid steppe rather
--- than true desert, but Civ 5 only has one arid terrain type, so "more
--- DESERT/PLAINS, less GRASS" is how that dryness shows up on the map.
-local DRY_BELT = {xMin = 13, xMax = 27, yMin = 16, yMax = 27}
-
 -- Gulf coast / Mississippi delta / Florida: where marsh should concentrate.
+-- Kept as an explicit rectangle (rather than fractal-driven) since real-world
+-- marsh is tied to specific low-lying river deltas/coastlines, not a broad
+-- climate gradient the way aridity or forest cover is.
 local MARSH_ZONES = {
 	{xMin = 28, xMax = 38, yMin = 16, yMax = 19}, -- Louisiana / Mississippi delta, Gulf coast
 	{xMin = 39, xMax = 44, yMin = 15, yMax = 20}, -- Florida
 }
+
+-- American South: where the historical Southern cash crops (see AddResources)
+-- should concentrate, roughly Chesapeake down through the Carolinas/Georgia.
+local AMERICAN_SOUTH = {xMin = 33, xMax = 44, yMin = 16, yMax = 24}
 
 local function InZone(x, y, zone)
 	return x >= zone.xMin and x <= zone.xMax and y >= zone.yMin and y <= zone.yMax
@@ -116,6 +120,15 @@ local function InExtra(x, y, list)
 		end
 	end
 	return false
+end
+
+local function GetBand(y)
+	for _, band in ipairs(BANDS) do
+		if y >= band.yMin and y <= band.yMax then
+			return band
+		end
+	end
+	return nil
 end
 
 ------------------------------------------------------------------------------
@@ -154,114 +167,209 @@ local CITY_STATE_SITES = {
 }
 
 ------------------------------------------------------------------------------
--- Coastline: real fractal noise, masked toward the Americas silhouette.
---
--- g_ContinentFractal:GetHeight(x, y) returns a per-plot noise value from the
--- same coherent (Perlin/plasma-style) fractal stock scripts use, so
--- neighboring plots vary smoothly instead of a "salt and pepper" random
--- scatter. g_ContinentFractal:GetHeightFromPercent(p) converts a target
--- land/water split into the matching height threshold.
---
--- GetLocalWaterPercent(x, y) supplies a DIFFERENT target split per plot:
--- deep in a band's interior, almost all noise values should count as land;
--- near a band edge or an island anchor, roughly half should; far outside any
--- band, all of it should count as water. Comparing the same noise field
--- against a threshold that varies by location is what keeps the coastline
--- both fractal-coherent and shaped like the Americas.
+-- Noise fields. Every region below (coastline, mountains, climate, forest
+-- cover) works the same way: sample a coherent fractal at (x, y), and
+-- compare it to a threshold that varies by location (via GetHeightFromPercent,
+-- which converts "what fraction of the noise range should count as land/
+-- mountain/arid/forested here" into the matching height cutoff). That's what
+-- makes each region cluster into one recognizable shape -- a ridge, a belt,
+-- a forest block -- instead of independent per-tile coin flips, while still
+-- differing in its exact extent every game because the underlying noise
+-- reseeds each time. Five independent fields are used so the ranges/belts
+-- below don't all wiggle in lockstep with each other.
 ------------------------------------------------------------------------------
 
-local g_ContinentFractal = nil
+local g_ContinentFractal = nil  -- coastline
+local g_RockiesFractal   = nil  -- west-coast mountain spine (Rockies/Sierra Madre/Andes)
+local g_AppalachianFractal = nil -- eastern US hill line
+local g_ClimateFractal   = nil  -- aridity gradient (Great Plains, Mexican plateau, Andean highlands)
+local g_ForestFractal    = nil  -- forest/jungle clumping
+
+local function InitFractals()
+	g_ContinentFractal = FractalWorld.Create()
+	g_ContinentFractal:InitFractal{continent_grain = 3}
+
+	g_RockiesFractal = FractalWorld.Create()
+	g_RockiesFractal:InitFractal{continent_grain = 5}
+
+	g_AppalachianFractal = FractalWorld.Create()
+	g_AppalachianFractal:InitFractal{continent_grain = 5}
+
+	g_ClimateFractal = FractalWorld.Create()
+	g_ClimateFractal:InitFractal{continent_grain = 3}
+
+	g_ForestFractal = FractalWorld.Create()
+	g_ForestFractal:InitFractal{continent_grain = 4}
+end
+
+------------------------------------------------------------------------------
+-- Coastline
+------------------------------------------------------------------------------
 
 local function GetLocalWaterPercent(x, y)
 	if InExtra(x, y, EXTRA_LAND) then
 		return 45 -- islands/peninsulas: roughly even odds, so size/shape varies
 	end
-	for _, band in ipairs(BANDS) do
-		if y >= band.yMin and y <= band.yMax then
-			if x < band.west or x > band.east then
-				local dist = math.min(math.abs(x - band.west), math.abs(x - band.east))
-				if dist <= 2 then
-					return 72 -- coastal fringe: occasional small island/inlet
-				end
-				return 100 -- firmly outside the envelope: force ocean
-			end
-			local edgeDist = math.min(x - band.west, band.east - x)
-			if edgeDist <= 1 then
-				return 55 -- band edge: wiggly coastline
-			end
-			return 12 -- band interior: almost always land
-		end
+	local band = GetBand(y)
+	if not band then
+		return 100
 	end
-	return 100
+	if x < band.west or x > band.east then
+		local dist = math.min(math.abs(x - band.west), math.abs(x - band.east))
+		if dist <= 2 then
+			return 72 -- coastal fringe: occasional small island/inlet
+		end
+		return 100 -- firmly outside the envelope: force ocean
+	end
+	local edgeDist = math.min(x - band.west, band.east - x)
+	if edgeDist <= 1 then
+		return 55 -- band edge: wiggly coastline
+	end
+	return 12 -- band interior: almost always land
 end
 
 ------------------------------------------------------------------------------
--- Elevation: a mountain spine along the western edge of each band (Rockies /
--- Sierra Madre / Andes) and a lower Appalachian hill line on the east --
--- but rolled per-plot each game so the exact ridge line shifts, rather than
--- being pixel-identical every time.
+-- Elevation: the Rockies/Sierra Madre/Andes run as a corridor along the west
+-- edge of each band -- fixed in rough position and width (so "the Rockies"
+-- stay the Rockies), with the exact peaks/foothills within that corridor
+-- coming from a coherent noise field so they cluster into ridge-like shapes
+-- rather than a scattered checkerboard, and shift a little every game. A
+-- lower, narrower Appalachian hill line runs on the eastern US only, using
+-- an independent noise field so it doesn't move in lockstep with the Rockies.
 ------------------------------------------------------------------------------
 
-local function GetElevation(x, y)
-	for _, band in ipairs(BANDS) do
-		if y >= band.yMin and y <= band.yMax then
-			if x <= band.west + 1 then
-				if Map.Rand(100, "Colonial Americas mountain roll") < 65 then
-					return "MOUNTAIN"
-				end
-				return "HILLS"
-			elseif x >= band.east - 6 and x <= band.east - 5 and y >= 17 and y <= 28 then
-				if Map.Rand(100, "Colonial Americas hill roll") < 55 then
-					return "HILLS" -- Appalachians, US only
-				end
-				return "FLAT"
+local ROCKIES_CORRIDOR_WIDTH = 5 -- tiles east of band.west the corridor can reach into
+
+local function GetElevation(x, y, band)
+	local distFromWest = x - band.west
+	if distFromWest <= ROCKIES_CORRIDOR_WIDTH then
+		-- corridorBias: ~100% chance of being "elevated ground" right at the
+		-- edge, fading out toward the corridor's inland limit.
+		local corridorBias = math.max(0, 100 - distFromWest * (100 / (ROCKIES_CORRIDOR_WIDTH + 1)))
+		local h = g_RockiesFractal:GetHeight(x, y)
+		local elevatedThreshold = g_RockiesFractal:GetHeightFromPercent(100 - corridorBias)
+		if h >= elevatedThreshold then
+			local peakThreshold = g_RockiesFractal:GetHeightFromPercent(40) -- top 60% of ALL heights = full peak
+			if h >= peakThreshold then
+				return "MOUNTAIN"
 			end
-			return "FLAT"
+			return "HILLS"
 		end
 	end
+
+	if y >= 17 and y <= 28 then
+		local distFromEast = band.east - x
+		if distFromEast >= 5 and distFromEast <= 9 then
+			local h = g_AppalachianFractal:GetHeight(x, y)
+			local threshold = g_AppalachianFractal:GetHeightFromPercent(55) -- top 45% = hills
+			if h >= threshold then
+				return "HILLS"
+			end
+		end
+	end
+
 	return "FLAT"
 end
 
 ------------------------------------------------------------------------------
--- Terrain: simplified latitude bands, with the Great Plains/Midwest DRY_BELT
--- biased drier (desert/plains over grass) than the East Coast at the same
--- latitude. iAridityRoll is picked once per game so how much of the belt
--- reads as true desert vs. dry plains varies game to game.
+-- Climate: an aridity gradient rooted in real rain-shadow geography -- driest
+-- right next to the western mountain spine, fading to humid a few tiles
+-- east, which is what produces a Great Plains/Mexican-plateau/Andean-
+-- highland dry belt without hardcoding it as a fixed rectangle. Canada's
+-- boreal band and the deep tropics are pulled back toward humid regardless
+-- of mountain distance, since real boreal forest and rainforest both stay
+-- wet independent of a rain-shadow effect. The noise field then clusters the
+-- exact dry patches into contiguous regions instead of speckling them.
 ------------------------------------------------------------------------------
 
-local function GetTerrain(x, y, iAridityRoll)
+local function GetAridPercent(x, y, band)
+	local distFromWest = x - band.west
+	local rainShadow = math.max(0, 55 - distFromWest * 6) -- ~55% at the mountains, 0 by ~9 tiles east
+	if y >= 23 then
+		rainShadow = rainShadow * 0.3 -- boreal Canada
+	elseif y < 9 then
+		rainShadow = rainShadow * 0.4 -- deep tropics
+	end
+	return math.min(90, rainShadow)
+end
+
+-- Returns "DESERT", "DRY_PLAINS", or "HUMID". The same noise field backs both
+-- thresholds, so true desert forms a smaller core within the wider dry-plains
+-- fringe, rather than two independently-scattered categories.
+local function GetClimateBand(x, y, band)
+	local aridPercent = GetAridPercent(x, y, band)
+	if aridPercent <= 1 then
+		return "HUMID"
+	end
+	local h = g_ClimateFractal:GetHeight(x, y)
+	local dryThreshold = g_ClimateFractal:GetHeightFromPercent(aridPercent)
+	local desertThreshold = g_ClimateFractal:GetHeightFromPercent(aridPercent * 0.45)
+	if h < desertThreshold then
+		return "DESERT"
+	elseif h < dryThreshold then
+		return "DRY_PLAINS"
+	end
+	return "HUMID"
+end
+
+local function GetTerrain(x, y)
 	if y >= 31 then
 		return TerrainTypes.TERRAIN_SNOW
 	elseif y >= 26 then
 		return TerrainTypes.TERRAIN_TUNDRA
-	elseif InZone(x, y, DRY_BELT) then
-		if Map.Rand(100, "Colonial Americas aridity roll") < iAridityRoll then
-			return TerrainTypes.TERRAIN_DESERT
-		end
-		return TerrainTypes.TERRAIN_PLAINS
-	elseif y >= 20 then
-		return TerrainTypes.TERRAIN_PLAINS
-	elseif y >= 15 then
-		return TerrainTypes.TERRAIN_PLAINS
-	elseif y >= 9 then
-		return TerrainTypes.TERRAIN_GRASS
-	else
-		return TerrainTypes.TERRAIN_PLAINS -- tropical Central America / N. South America
 	end
+
+	local band = GetBand(y)
+	if band then
+		local climate = GetClimateBand(x, y, band)
+		if climate == "DESERT" then
+			return TerrainTypes.TERRAIN_DESERT
+		elseif climate == "DRY_PLAINS" then
+			return TerrainTypes.TERRAIN_PLAINS
+		end
+	end
+
+	if y < 9 then
+		return TerrainTypes.TERRAIN_PLAINS -- humid tropical Central America / N. South America (see AddFeatures for jungle)
+	elseif y >= 20 then
+		return TerrainTypes.TERRAIN_PLAINS -- humid interior/eastern US
+	end
+	return TerrainTypes.TERRAIN_GRASS
 end
 
-local function GetFeatureChance(x, y, terrain)
-	if InAnyZone(x, y, MARSH_ZONES) then
+------------------------------------------------------------------------------
+-- Forest/jungle cover: a base chance per region (low in the open Great
+-- Plains interior, high in the Canadian boreal band and the deep tropics,
+-- moderate in the eastern woodlands), applied through the forest noise field
+-- so it clusters into large contiguous blocks -- "huge forests" -- rather
+-- than scattered single tiles.
+------------------------------------------------------------------------------
+
+local function GetFeatureChance(x, y, terrain, band)
+	if InAnyZone(x, y, MARSH_ZONES) and terrain ~= TerrainTypes.TERRAIN_DESERT then
 		return FeatureTypes.FEATURE_MARSH, 55
-	elseif terrain == TerrainTypes.TERRAIN_SNOW or terrain == TerrainTypes.TERRAIN_TUNDRA then
-		return FeatureTypes.FEATURE_FOREST, 25
-	elseif terrain == TerrainTypes.TERRAIN_DESERT then
-		return -1, 0
-	elseif y < 9 then
-		return FeatureTypes.FEATURE_JUNGLE, 45
-	else
-		return FeatureTypes.FEATURE_FOREST, 30
 	end
+	if terrain == TerrainTypes.TERRAIN_DESERT then
+		return -1, 0
+	end
+
+	if y < 9 then
+		return FeatureTypes.FEATURE_JUNGLE, 60 -- Amazon-adjacent lowland jungle
+	end
+	if y >= 23 then
+		return FeatureTypes.FEATURE_FOREST, 55 -- Canadian boreal forest
+	end
+
+	if band and terrain == TerrainTypes.TERRAIN_PLAINS then
+		local distFromWest = x - band.west
+		local distFromEast = band.east - x
+		local bandWidth = band.east - band.west
+		if bandWidth >= 20 and distFromWest > 10 and distFromEast > 6 then
+			return FeatureTypes.FEATURE_FOREST, 8 -- Great Plains interior: stay open grassland
+		end
+	end
+
+	return FeatureTypes.FEATURE_FOREST, 32 -- eastern woodlands / general temperate forest
 end
 
 ------------------------------------------------------------------------------
@@ -292,8 +400,7 @@ end
 function GeneratePlotTypes()
 	print("Colonial Americas: generating plot types from masked fractal noise")
 
-	g_ContinentFractal = FractalWorld.Create()
-	g_ContinentFractal:InitFractal{continent_grain = 3}
+	InitFractals()
 
 	local plotTypes = {}
 	for y = 0, MAP_HEIGHT - 1 do
@@ -313,7 +420,8 @@ function GeneratePlotTypes()
 			if not isLand then
 				plotTypes[i] = PlotTypes.PLOT_OCEAN
 			else
-				local elevation = GetElevation(x, y)
+				local band = GetBand(y)
+				local elevation = band and GetElevation(x, y, band) or "FLAT"
 				if elevation == "MOUNTAIN" then
 					plotTypes[i] = PlotTypes.PLOT_MOUNTAIN
 				elseif elevation == "HILLS" then
@@ -332,11 +440,6 @@ end
 function GenerateTerrain()
 	print("Colonial Americas: generating terrain")
 
-	-- Picked once per game: how much of the DRY_BELT reads as true desert
-	-- vs. merely dry plains. Keeps "how arid this playthrough's Midwest is"
-	-- variable, the way resource density below is too.
-	local iAridityRoll = 40 + Map.Rand(35, "Colonial Americas aridity base roll") -- 40-74
-
 	for y = 0, MAP_HEIGHT - 1 do
 		for x = 0, MAP_WIDTH - 1 do
 			local plot = Map.GetPlot(x, y)
@@ -346,7 +449,7 @@ function GenerateTerrain()
 				elseif InAnyZone(x, y, MARSH_ZONES) then
 					plot:SetTerrainType(TerrainTypes.TERRAIN_GRASS, false, false) -- marsh feature goes on grass
 				else
-					plot:SetTerrainType(GetTerrain(x, y, iAridityRoll), false, false)
+					plot:SetTerrainType(GetTerrain(x, y), false, false)
 				end
 			elseif InExtra(x, y, LAKE_PLOTS) then
 				plot:SetTerrainType(TerrainTypes.TERRAIN_COAST, false, false)
@@ -375,10 +478,15 @@ function AddFeatures()
 		for x = 0, MAP_WIDTH - 1 do
 			local plot = Map.GetPlot(x, y)
 			if not plot:IsWater() and plot:GetPlotType() ~= PlotTypes.PLOT_MOUNTAIN then
+				local band = GetBand(y)
 				local terrain = plot:GetTerrainType()
-				local feature, chance = GetFeatureChance(x, y, terrain)
-				if feature and feature >= 0 and Map.Rand(100, "Colonial Americas feature roll") < chance then
-					plot:SetFeatureType(feature, -1)
+				local feature, baseChance = GetFeatureChance(x, y, terrain, band)
+				if feature and feature >= 0 and baseChance > 0 then
+					local h = g_ForestFractal:GetHeight(x, y)
+					local threshold = g_ForestFractal:GetHeightFromPercent(100 - baseChance)
+					if h >= threshold then
+						plot:SetFeatureType(feature, -1)
+					end
 				end
 			end
 		end
@@ -402,25 +510,39 @@ function AddResources()
 	-- between playthroughs, not just placement.
 	local iResourceDensity = 5 + Map.Rand(8, "Colonial Americas resource density roll") -- 5-12%
 
-	local BONUS_BY_TERRAIN = {
-		[TerrainTypes.TERRAIN_GRASS]  = {"RESOURCE_WHEAT", "RESOURCE_COW", "RESOURCE_SUGAR"},
-		[TerrainTypes.TERRAIN_PLAINS] = {"RESOURCE_WHEAT", "RESOURCE_COTTON", "RESOURCE_TOBACCO"},
-		[TerrainTypes.TERRAIN_TUNDRA] = {"RESOURCE_DEER", "RESOURCE_FUR"},
-		[TerrainTypes.TERRAIN_SNOW]   = {"RESOURCE_FUR"},
-		[TerrainTypes.TERRAIN_DESERT] = {"RESOURCE_SILVER"},
-	}
-	local BONUS_BY_FEATURE = {
-		[FeatureTypes.FEATURE_MARSH]  = {"RESOURCE_SUGAR", "RESOURCE_DYE"},
-		[FeatureTypes.FEATURE_JUNGLE] = {"RESOURCE_DYE", "RESOURCE_SUGAR", "RESOURCE_COCOA"},
-		[FeatureTypes.FEATURE_FOREST] = {"RESOURCE_FUR", "RESOURCE_DEER"},
-	}
-
 	for y = 0, MAP_HEIGHT - 1 do
 		for x = 0, MAP_WIDTH - 1 do
 			local plot = Map.GetPlot(x, y)
 			if not plot:IsWater() then
-				local featureOptions = BONUS_BY_FEATURE[plot:GetFeatureType()]
-				local options = featureOptions or BONUS_BY_TERRAIN[plot:GetTerrainType()]
+				local feature = plot:GetFeatureType()
+				local terrain = plot:GetTerrainType()
+				local options = nil
+
+				-- Loose historical resourcing: cash crops follow the region
+				-- they were actually grown in colonial times, not just the
+				-- underlying terrain type everywhere it appears.
+				if feature == FeatureTypes.FEATURE_MARSH then
+					options = {"RESOURCE_SUGAR", "RESOURCE_DYE"} -- Gulf/Caribbean sugar, indigo
+				elseif feature == FeatureTypes.FEATURE_JUNGLE then
+					options = {"RESOURCE_DYE", "RESOURCE_SUGAR", "RESOURCE_COCOA"} -- Central/N. South America
+				elseif feature == FeatureTypes.FEATURE_FOREST then
+					options = {"RESOURCE_FUR", "RESOURCE_DEER"} -- Canadian/northern fur trade
+				elseif terrain == TerrainTypes.TERRAIN_DESERT then
+					options = {"RESOURCE_SILVER"} -- Mexican/Andean silver country
+				elseif InZone(x, y, AMERICAN_SOUTH) and (terrain == TerrainTypes.TERRAIN_PLAINS or terrain == TerrainTypes.TERRAIN_GRASS) then
+					-- Civ 5 has no base-game Tobacco resource, so Cotton and
+					-- Dye (indigo) stand in as the real, obtainable resources
+					-- carrying the Tidewater/Southern colonial cash-crop
+					-- flavor (see README).
+					options = {"RESOURCE_COTTON", "RESOURCE_DYE"}
+				elseif terrain == TerrainTypes.TERRAIN_GRASS then
+					options = {"RESOURCE_WHEAT", "RESOURCE_COW"}
+				elseif terrain == TerrainTypes.TERRAIN_PLAINS then
+					options = {"RESOURCE_WHEAT"}
+				elseif terrain == TerrainTypes.TERRAIN_TUNDRA or terrain == TerrainTypes.TERRAIN_SNOW then
+					options = {"RESOURCE_DEER", "RESOURCE_FUR"}
+				end
+
 				if options and Map.Rand(100, "Colonial Americas resource roll") < iResourceDensity then
 					local resName = options[1 + Map.Rand(#options, "Colonial Americas resource pick")]
 					local resType = GameInfoTypes[resName]
