@@ -584,6 +584,12 @@ function AddResources()
 					options = {"RESOURCE_DYE", "RESOURCE_SUGAR", "RESOURCE_COCOA"} -- Central/N. South America
 				elseif feature == FeatureTypes.FEATURE_FOREST then
 					options = {"RESOURCE_FUR", "RESOURCE_DEER"} -- Canadian/northern fur trade
+				elseif plot:GetPlotType() == PlotTypes.PLOT_HILLS then
+					-- Mineral wealth up and down the whole cordillera -- the
+					-- Sierra Nevada foothills (California, 1848), Colorado,
+					-- and Mexico/the Andes (the actual reason Spain conquered
+					-- the Aztec and Inca) all produced gold and/or silver.
+					options = {"RESOURCE_GOLD", "RESOURCE_SILVER"}
 				elseif terrain == TerrainTypes.TERRAIN_DESERT then
 					options = {"RESOURCE_SILVER"} -- Mexican/Andean silver country
 				elseif InZone(x, y, AMERICAN_SOUTH) and (terrain == TerrainTypes.TERRAIN_PLAINS or terrain == TerrainTypes.TERRAIN_GRASS) then

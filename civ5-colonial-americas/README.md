@@ -118,10 +118,13 @@ below before you assume something is broken.
   geography, not just terrain type everywhere it appears: Cotton and Dye
   (indigo) — standing in for Tobacco, see below — are restricted to
   `AMERICAN_SOUTH` (roughly Chesapeake through the Carolinas/Georgia) rather
-  than any Plains tile on the map; Sugar/Dye/Cocoa cluster in
-  jungle/marsh (Caribbean, Central America); Fur/Deer in forest and
-  tundra/snow (the northern fur trade); Silver in desert (Mexican/Andean
-  silver country).
+  than any Plains tile on the map; Sugar/Dye/Cocoa cluster in jungle/marsh
+  (Caribbean, Central America); Fur/Deer in forest and tundra/snow (the
+  northern fur trade); Gold/Silver on Hills (mineral wealth up and down the
+  whole cordillera — the Sierra Nevada foothills behind California's new
+  coastal shelf, Colorado, and Mexico/the Andes, which is the actual reason
+  Spain conquered the Aztec and Inca in the first place); Silver again on
+  flat Desert specifically for Mexican/Andean silver country.
 - `FIXED_STARTS` covers seven civs, all playable from turn 1 and fixed every
   game since they're the scenario's historical anchor:
   - **Spain** near Veracruz, **England** on the Atlantic coast, **France**
