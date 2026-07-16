@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mod id="b3811e46-37f5-4cd6-9894-3e100dac8bad" version="1">
+	<Properties>
+		<Name>Colonial Americas</Name>
+		<Teaser>A fixed scenario map of the Americas for the colonial era</Teaser>
+		<Description>Adds a regenerating 70x44 map script that lays out a stylized Americas continent (Canada down through northern South America) with fixed starting positions for Spain, England, France, America, Aztec, Iroquois, and Shoshone, plus suggested City-State placements standing in for native nations that aren't full Civ 5 civs (Shawnee, Powhatan, Cherokee, Sioux, Apache, Huron, and Taino). Coastline, mountains, climate, and forests regenerate every game from fractal noise. Select "Colonial Americas" from the map script dropdown when starting a new game.</Description>
+		<Authors>epillay</Authors>
+		<SpecialThanks></SpecialThanks>
+		<MinCompatibleSaveVersion>0</MinCompatibleSaveVersion>
+	</Properties>
+	<Files>
+		<File>Maps/ColonialAmericas.lua</File>
+	</Files>
+	<EntryPoints>
+		<EntryPoint type="MapScript" file="Maps/ColonialAmericas.lua">
+			<Name>TXT_KEY_MAP_COLONIAL_AMERICAS</Name>
+			<Description>TXT_KEY_MAP_COLONIAL_AMERICAS_HELP</Description>
+		</EntryPoint>
+	</EntryPoints>
+	<References/>
+</Mod>
