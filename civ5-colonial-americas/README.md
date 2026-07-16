@@ -285,8 +285,11 @@ the pixel.
 
 ## Suggested companion mods
 
-For real Native American civilizations (rather than City-State stand-ins)
-or a dedicated Canada civ, look for community civ mods on the Steam
-Workshop — search terms like "Iroquois", "Cherokee", "Sioux civilization",
-or "Canada civilization". This repo doesn't bundle any third-party mod IDs
-since those change over time; search and pick what looks maintained.
+Aztec, Iroquois, and Shoshone are already real Civ 5 civilizations handled
+directly by this map (see `FIXED_STARTS`) — no extra mod needed for them.
+For the remaining native nations that are only City-State stand-ins here
+(Cherokee, Sioux, Powhatan, Huron, Apache, Taino, Shawnee) or for a
+dedicated Canada civ, look for community civ mods on the Steam Workshop —
+search terms like "Cherokee civilization", "Sioux civilization", or "Canada
+civilization". This repo doesn't bundle any third-party mod IDs since those
+change over time; search and pick what looks maintained.

@@ -172,8 +172,11 @@ end
 --
 -- Unlike the terrain, these stay fixed every game -- they're the historical
 -- anchor the rest of the map regenerates around. Coordinates are also kept
--- at least 8 tiles from each band's west edge (ROCKIES_CORRIDOR_WIDTH is 7)
--- so a fixed start can never land on a fractal-generated mountain tile.
+-- at least 8 tiles east of where each band's mountain corridor starts
+-- (band.west + band.coast, with ROCKIES_CORRIDOR_WIDTH at 7) so a fixed
+-- start can never land on a fractal-generated mountain tile -- OR placed on
+-- the coastal shelf itself (band.west to band.west + band.coast - 1), which
+-- is unconditionally flat.
 --
 -- Iroquois/England/France/America were deliberately spread across the full
 -- width of their bands (rather than clustered near the middle, as an
@@ -211,7 +214,7 @@ local FIXED_STARTS = {
 local CITY_STATE_SITES = {
 	{x = 46, y = 27, note = "Shawnee (Ohio valley)"},
 	{x = 51, y = 29, note = "Powhatan (Chesapeake)"},
-	{x = 42, y = 23, note = "Cherokee (southern Appalachians)"},
+	{x = 40, y = 23, note = "Cherokee (southern Appalachians)"},
 	{x = 35, y = 26, note = "Sioux / Lakota (Great Plains)"},
 	{x = 25, y = 23, note = "Apache (southwest desert)"},
 	{x = 39, y = 38, note = "Huron / Wendat (Ontario)"},
