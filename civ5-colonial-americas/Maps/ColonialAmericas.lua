@@ -381,9 +381,14 @@ local function GetClimateBand(x, y, band)
 end
 
 local function GetTerrain(x, y)
+	-- Tundra/Snow only kick in this far north (39+/40+) so that France's
+	-- start (y=38, in the "Northern Canada" band) lands on Plains, not
+	-- Tundra -- real Quebec/the St. Lawrence valley is temperate/boreal
+	-- forest with genuine farmland, not tundra; true tundra in Canada is
+	-- much further north than the St. Lawrence.
 	if y >= 40 then
 		return TerrainTypes.TERRAIN_SNOW
-	elseif y >= 34 then
+	elseif y >= 39 then
 		return TerrainTypes.TERRAIN_TUNDRA
 	end
 
