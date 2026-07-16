@@ -12,8 +12,16 @@
 -- thresholded per region, so a given range/biome clusters into one
 -- recognizable shape instead of "salt and pepper" independent-per-tile
 -- randomness -- while still coming out slightly different every game. Only
--- the four colonial powers' starting positions and the Great Lakes are
--- pinned down exactly.
+-- the fixed civ starting positions and the Great Lakes are pinned down
+-- exactly.
+--
+-- Map size: 70x44 (3,080 plots), deliberately sized above Civ 5's stock
+-- "Small" (56x36, 6-player) map so the 7 fixed major civs + 7 City-States
+-- this scenario hosts aren't packed as tightly as the original 54x34 draft.
+-- All coordinate tables below were produced by scaling that original draft
+-- by 1.3x (see PR history), which is why the numbers don't look like round
+-- hand-picked values -- treat them as a starting point for further tuning,
+-- not gospel.
 --
 -- This is a from-scratch, hand-written script rather than a tweak of a
 -- stock Firaxis map script, so treat it as a first draft: load it in-game,
@@ -32,8 +40,8 @@ include("FractalWorld")
 -- Map dimensions
 ------------------------------------------------------------------------------
 
-local MAP_WIDTH  = 54  -- x: 0 = Pacific (west) .. 53 = Atlantic (east)
-local MAP_HEIGHT = 34  -- y: 0 = south (northern S. America) .. 33 = north (Arctic Canada)
+local MAP_WIDTH  = 70  -- x: 0 = Pacific (west) .. 69 = Atlantic (east)
+local MAP_HEIGHT = 44  -- y: 0 = south (northern S. America) .. 43 = north (Arctic Canada)
 
 ------------------------------------------------------------------------------
 -- Continent silhouette, defined as [west, east] land bounds per row band.
@@ -47,19 +55,19 @@ local MAP_HEIGHT = 34  -- y: 0 = south (northern S. America) .. 33 = north (Arct
 ------------------------------------------------------------------------------
 
 local BANDS = {
-	{yMin = 32, yMax = 33, west = 10, east = 40}, -- Arctic Canada / Alaska
-	{yMin = 29, yMax = 31, west = 6,  east = 44}, -- Northern Canada
-	{yMin = 26, yMax = 28, west = 8,  east = 43}, -- Central Canada / Hudson Bay area
-	{yMin = 23, yMax = 25, west = 9,  east = 42}, -- Great Lakes / US-Canada border
-	{yMin = 20, yMax = 22, west = 10, east = 40}, -- US Midwest / Northeast
-	{yMin = 17, yMax = 19, west = 12, east = 37}, -- US South / Gulf coast (north shore)
-	{yMin = 15, yMax = 16, west = 15, east = 30}, -- Northern Mexico / Texas taper
-	{yMin = 13, yMax = 14, west = 17, east = 27}, -- Central Mexico
-	{yMin = 11, yMax = 12, west = 19, east = 25}, -- Southern Mexico / Guatemala
-	{yMin = 9,  yMax = 10, west = 20, east = 23}, -- Central American isthmus (narrowest)
-	{yMin = 7,  yMax = 8,  west = 19, east = 26}, -- Panama / Colombia widening
-	{yMin = 4,  yMax = 6,  west = 16, east = 29}, -- Venezuela / Colombia coast
-	{yMin = 0,  yMax = 3,  west = 14, east = 31}, -- Northern edge of S. America (Ecuador/Peru/Brazil coast)
+	{yMin = 42, yMax = 43, west = 13, east = 52}, -- Arctic Canada / Alaska
+	{yMin = 38, yMax = 40, west = 8,  east = 57}, -- Northern Canada
+	{yMin = 34, yMax = 36, west = 10, east = 56}, -- Central Canada / Hudson Bay area
+	{yMin = 30, yMax = 33, west = 12, east = 55}, -- Great Lakes / US-Canada border
+	{yMin = 26, yMax = 29, west = 13, east = 52}, -- US Midwest / Northeast
+	{yMin = 22, yMax = 25, west = 16, east = 48}, -- US South / Gulf coast (north shore)
+	{yMin = 20, yMax = 21, west = 20, east = 39}, -- Northern Mexico / Texas taper
+	{yMin = 17, yMax = 18, west = 22, east = 35}, -- Central Mexico
+	{yMin = 14, yMax = 16, west = 25, east = 33}, -- Southern Mexico / Guatemala
+	{yMin = 12, yMax = 13, west = 26, east = 30}, -- Central American isthmus (narrowest)
+	{yMin = 9,  yMax = 10, west = 25, east = 34}, -- Panama / Colombia widening
+	{yMin = 5,  yMax = 8,  west = 21, east = 38}, -- Venezuela / Colombia coast
+	{yMin = 0,  yMax = 4,  west = 18, east = 40}, -- Northern edge of S. America (Ecuador/Peru/Brazil coast)
 }
 
 -- Extra land anchors added on top of the bands: peninsulas and islands that a
@@ -68,23 +76,24 @@ local BANDS = {
 -- slightly smaller/larger/split into two islands, etc.
 local EXTRA_LAND = {
 	-- Florida peninsula (east of the Gulf of Mexico gap)
-	{40,19},{41,19},{42,19},{40,18},{41,18},{42,18},{43,18},{41,17},{42,17},{43,17},{42,16},{43,16},{43,15},
+	{52,25},{53,25},{54,25},{55,25},{52,23},{53,23},{54,23},{55,23},{56,23},
+	{53,22},{54,22},{55,22},{56,22},{55,21},{56,21},{56,20},
 	-- Baja California (west of the Gulf of California gap)
-	{9,20},{9,21},{8,21},{8,22},{9,22},{9,23},
+	{12,26},{12,27},{10,27},{10,29},{12,29},{12,30},
 	-- Cuba
-	{33,15},{34,15},{35,15},{36,15},{37,15},
+	{43,20},{44,20},{45,20},{46,20},{47,20},{48,20},
 	-- Bahamas
-	{39,16},{40,16},
+	{51,21},{52,21},
 	-- Hispaniola
-	{38,13},{39,13},{38,12},
+	{49,17},{50,17},{51,17},{49,16},
 	-- Puerto Rico
-	{41,12},
+	{53,16},
 }
 
 -- Great Lakes: carved out of the continental band as freshwater lake plots
 -- (kept fixed -- the lakes are a landmark, not something that should vanish).
 local LAKE_PLOTS = {
-	{25,24},{26,24},{27,24},{25,23},{26,25},{28,24},
+	{33,31},{34,31},{35,31},{33,30},{34,33},{36,31},
 }
 
 -- Gulf coast / Mississippi delta / Florida: where marsh should concentrate.
@@ -92,13 +101,13 @@ local LAKE_PLOTS = {
 -- marsh is tied to specific low-lying river deltas/coastlines, not a broad
 -- climate gradient the way aridity or forest cover is.
 local MARSH_ZONES = {
-	{xMin = 28, xMax = 38, yMin = 16, yMax = 19}, -- Louisiana / Mississippi delta, Gulf coast
-	{xMin = 39, xMax = 44, yMin = 15, yMax = 20}, -- Florida
+	{xMin = 36, xMax = 49, yMin = 21, yMax = 25}, -- Louisiana / Mississippi delta, Gulf coast
+	{xMin = 51, xMax = 57, yMin = 20, yMax = 26}, -- Florida
 }
 
 -- American South: where the historical Southern cash crops (see AddResources)
 -- should concentrate, roughly Chesapeake down through the Carolinas/Georgia.
-local AMERICAN_SOUTH = {xMin = 33, xMax = 44, yMin = 16, yMax = 24}
+local AMERICAN_SOUTH = {xMin = 43, xMax = 57, yMin = 21, yMax = 31}
 
 local function InZone(x, y, zone)
 	return x >= zone.xMin and x <= zone.xMax and y >= zone.yMin and y <= zone.yMax
@@ -133,49 +142,60 @@ end
 
 ------------------------------------------------------------------------------
 -- Fixed starting positions, keyed by CivilizationType. Covers both the four
--- colonial powers AND the four native nations that are real, fully playable
+-- colonial powers AND the three native nations that are real, fully playable
 -- Civ 5 civilizations rather than City-State stand-ins: Aztec (Montezuma,
--- base game), Iroquois (Hiawatha, base game), Maya (Pacal, requires Gods &
--- Kings), and Shoshone (Pocatello, requires Brave New World). If a player
--- slot isn't set to one of these civs (or the DLC isn't installed so the civ
--- was never selectable), that entry is simply never matched in
--- StartPlotSystem -- no crash, the slot just falls through to the default
--- start finder.
+-- base game), Iroquois (Hiawatha, base game), and Shoshone (Pocatello,
+-- requires Brave New World). If a player slot isn't set to one of these
+-- civs (or the DLC isn't installed so the civ was never selectable), that
+-- entry is simply never matched in StartPlotSystem -- no crash, the slot
+-- just falls through to the default start finder.
 --
 -- Unlike the terrain, these stay fixed every game -- they're the historical
 -- anchor the rest of the map regenerates around. Coordinates are also kept
--- at least 6 tiles from each band's west edge (ROCKIES_CORRIDOR_WIDTH is 5)
+-- at least 8 tiles from each band's west edge (ROCKIES_CORRIDOR_WIDTH is 7)
 -- so a fixed start can never land on a fractal-generated mountain tile.
+--
+-- Iroquois/England/France/America were deliberately spread across the full
+-- width of their bands (rather than clustered near the middle, as an
+-- earlier draft had them) to reduce crowding between the four -- Iroquois
+-- in particular sits further west within the Great Lakes band than its
+-- real historical (upstate NY) location, trading some geographic precision
+-- for breathing room. Maya was dropped from this list (and not replaced by
+-- a City-State) since Aztec already anchors that corner of the map and the
+-- two were uncomfortably close together.
 ------------------------------------------------------------------------------
 
 local FIXED_STARTS = {
-	CIVILIZATION_SPAIN    = {x = 20, y = 17}, -- Gulf coast of Mexico, near Veracruz
-	CIVILIZATION_ENGLAND  = {x = 38, y = 24}, -- Chesapeake / mid-Atlantic coast
-	CIVILIZATION_FRANCE   = {x = 34, y = 29}, -- St. Lawrence valley, Quebec
-	CIVILIZATION_AMERICA  = {x = 30, y = 21}, -- Ohio valley frontier
-	CIVILIZATION_AZTEC    = {x = 24, y = 14}, -- Central Mexican highlands (Valley of Mexico)
-	CIVILIZATION_IROQUOIS = {x = 30, y = 25}, -- Great Lakes / upstate NY, south of Lake Ontario
-	CIVILIZATION_MAYA     = {x = 25, y = 11}, -- Yucatan / Guatemalan highlands
-	CIVILIZATION_SHOSHONE = {x = 17, y = 21}, -- Great Basin / Rocky Mountain foothills
+	CIVILIZATION_SPAIN    = {x = 28, y = 22}, -- Gulf coast of Mexico, near Veracruz
+	CIVILIZATION_ENGLAND  = {x = 52, y = 31}, -- Atlantic coast
+	CIVILIZATION_FRANCE   = {x = 48, y = 38}, -- St. Lawrence valley, Quebec
+	CIVILIZATION_AMERICA  = {x = 31, y = 27}, -- interior frontier
+	CIVILIZATION_AZTEC    = {x = 31, y = 18}, -- Central Mexican highlands (Valley of Mexico)
+	CIVILIZATION_IROQUOIS = {x = 21, y = 31}, -- western Great Lakes
+	CIVILIZATION_SHOSHONE = {x = 22, y = 27}, -- Great Basin / Rocky Mountain foothills
 }
 
 -- Suggested City-State sites standing in for native nations that DON'T have
--- a dedicated Civ 5 civilization (Aztec/Iroquois/Maya/Shoshone are handled
--- as real civs above instead). Civ V can't rename a City-State's underlying
+-- a dedicated Civ 5 civilization (Aztec/Iroquois/Shoshone are handled as
+-- real civs above instead). Civ V can't rename a City-State's underlying
 -- personality/type without an extra civ mod, but you CAN rename the city
 -- itself in World Builder -- rename these to match after generating the map
--- (e.g. rename the city-state city at 42,21 to "Werowocomoco" for a
+-- (e.g. rename the city-state city at 51,29 to "Werowocomoco" for a
 -- Powhatan stand-in).
+--
+-- Comanche and the Muisca/Inca-frontier site were cut from an earlier,
+-- 9-site draft to reduce crowding: Comanche overlapped the same Great
+-- Plains niche as Sioux and Shoshone, and the Muisca/Inca site was the
+-- vaguest, most isolated entry and least central to a North America-focused
+-- colonial scenario.
 local CITY_STATE_SITES = {
-	{x = 35, y = 21, note = "Shawnee (Ohio valley)"},
-	{x = 42, y = 21, note = "Powhatan (Chesapeake)"},
-	{x = 38, y = 19, note = "Cherokee (southern Appalachians)"},
-	{x = 30, y = 20, note = "Sioux / Lakota (Great Plains)"},
-	{x = 22, y = 20, note = "Comanche (southern plains)"},
-	{x = 12, y = 20, note = "Apache (southwest desert)"},
-	{x = 30, y = 29, note = "Huron / Wendat (Ontario)"},
-	{x = 35, y = 15, note = "Taino (Cuba / Caribbean)"},
-	{x = 21, y = 5,  note = "Muisca / Inca frontier (northern Andes)"},
+	{x = 46, y = 27, note = "Shawnee (Ohio valley)"},
+	{x = 51, y = 29, note = "Powhatan (Chesapeake)"},
+	{x = 42, y = 23, note = "Cherokee (southern Appalachians)"},
+	{x = 35, y = 26, note = "Sioux / Lakota (Great Plains)"},
+	{x = 25, y = 23, note = "Apache (southwest desert)"},
+	{x = 39, y = 38, note = "Huron / Wendat (Ontario)"},
+	{x = 46, y = 20, note = "Taino (Cuba / Caribbean)"},
 }
 
 ------------------------------------------------------------------------------
@@ -228,7 +248,7 @@ local function GetLocalWaterPercent(x, y)
 	end
 	if x < band.west or x > band.east then
 		local dist = math.min(math.abs(x - band.west), math.abs(x - band.east))
-		if dist <= 2 then
+		if dist <= 3 then
 			return 72 -- coastal fringe: occasional small island/inlet
 		end
 		return 100 -- firmly outside the envelope: force ocean
@@ -250,7 +270,7 @@ end
 -- an independent noise field so it doesn't move in lockstep with the Rockies.
 ------------------------------------------------------------------------------
 
-local ROCKIES_CORRIDOR_WIDTH = 5 -- tiles east of band.west the corridor can reach into
+local ROCKIES_CORRIDOR_WIDTH = 7 -- tiles east of band.west the corridor can reach into
 
 local function GetElevation(x, y, band)
 	local distFromWest = x - band.west
@@ -269,9 +289,9 @@ local function GetElevation(x, y, band)
 		end
 	end
 
-	if y >= 17 and y <= 28 then
+	if y >= 22 and y <= 36 then
 		local distFromEast = band.east - x
-		if distFromEast >= 5 and distFromEast <= 9 then
+		if distFromEast >= 7 and distFromEast <= 12 then
 			local h = g_AppalachianFractal:GetHeight(x, y)
 			local threshold = g_AppalachianFractal:GetHeightFromPercent(55) -- top 45% = hills
 			if h >= threshold then
@@ -296,10 +316,10 @@ end
 
 local function GetAridPercent(x, y, band)
 	local distFromWest = x - band.west
-	local rainShadow = math.max(0, 55 - distFromWest * 6) -- ~55% at the mountains, 0 by ~9 tiles east
-	if y >= 23 then
+	local rainShadow = math.max(0, 55 - distFromWest * 4.6) -- ~55% at the mountains, 0 by ~12 tiles east
+	if y >= 30 then
 		rainShadow = rainShadow * 0.3 -- boreal Canada
-	elseif y < 9 then
+	elseif y < 12 then
 		rainShadow = rainShadow * 0.4 -- deep tropics
 	end
 	return math.min(90, rainShadow)
@@ -325,9 +345,9 @@ local function GetClimateBand(x, y, band)
 end
 
 local function GetTerrain(x, y)
-	if y >= 31 then
+	if y >= 40 then
 		return TerrainTypes.TERRAIN_SNOW
-	elseif y >= 26 then
+	elseif y >= 34 then
 		return TerrainTypes.TERRAIN_TUNDRA
 	end
 
@@ -341,9 +361,9 @@ local function GetTerrain(x, y)
 		end
 	end
 
-	if y < 9 then
+	if y < 12 then
 		return TerrainTypes.TERRAIN_PLAINS -- humid tropical Central America / N. South America (see AddFeatures for jungle)
-	elseif y >= 20 then
+	elseif y >= 26 then
 		return TerrainTypes.TERRAIN_PLAINS -- humid interior/eastern US
 	end
 	return TerrainTypes.TERRAIN_GRASS
@@ -365,10 +385,10 @@ local function GetFeatureChance(x, y, terrain, band)
 		return -1, 0
 	end
 
-	if y < 9 then
+	if y < 12 then
 		return FeatureTypes.FEATURE_JUNGLE, 60 -- Amazon-adjacent lowland jungle
 	end
-	if y >= 23 then
+	if y >= 30 then
 		return FeatureTypes.FEATURE_FOREST, 55 -- Canadian boreal forest
 	end
 
@@ -376,7 +396,7 @@ local function GetFeatureChance(x, y, terrain, band)
 		local distFromWest = x - band.west
 		local distFromEast = band.east - x
 		local bandWidth = band.east - band.west
-		if bandWidth >= 20 and distFromWest > 10 and distFromEast > 6 then
+		if bandWidth >= 26 and distFromWest > 13 and distFromEast > 8 then
 			return FeatureTypes.FEATURE_FOREST, 8 -- Great Plains interior: stay open grassland
 		end
 	end
@@ -568,12 +588,12 @@ function AddResources()
 end
 
 function StartPlotSystem()
-	-- Bypass the balanced-start algorithm entirely: place the four majors
-	-- at fixed, historically-flavored coordinates, and drop City-States at
-	-- the suggested native-nation sites. Any player slots beyond these
-	-- (extra city-states added via the in-game player count, or majors not
-	-- listed in FIXED_STARTS) fall back to the default finder so the game
-	-- can still start without erroring.
+	-- Bypass the balanced-start algorithm entirely: place the fixed civs at
+	-- their historically-flavored coordinates, and drop City-States at the
+	-- suggested native-nation sites. Any player slots beyond these (extra
+	-- city-states added via the in-game player count, or majors not listed
+	-- in FIXED_STARTS) fall back to the default finder so the game can
+	-- still start without erroring.
 	local startPlotSystem = AssignStartingPlots.Create()
 
 	for playerID, player in pairs(Players) do

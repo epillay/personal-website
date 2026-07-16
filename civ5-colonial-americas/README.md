@@ -2,11 +2,18 @@
 
 A custom map script for Civilization V (Gods & Kings / Brave New World) for
 a colonial-era Americas game: Spain, England, France, and America all start
-at fixed, historically-flavored positions, alongside four native nations
-that are real, fully playable Civ 5 civilizations — Aztec, Iroquois, Maya,
-and Shoshone — also given fixed starts. City-State sites are suggested on
-top of that for native peoples that don't have a dedicated Civ 5 civ
-(Cherokee, Sioux, Powhatan, Huron, Comanche, Apache, Taino, and more).
+at fixed, historically-flavored positions, alongside three native nations
+that are real, fully playable Civ 5 civilizations — Aztec, Iroquois, and
+Shoshone — also given fixed starts. City-State sites are suggested on top
+of that for native peoples that don't have a dedicated Civ 5 civ (Cherokee,
+Sioux, Powhatan, Huron, Apache, Taino, and Shawnee).
+
+The map is 70×44 (3,080 plots) — deliberately sized above Civ 5's stock
+"Small" (56×36, 6-player) map, since this scenario hosts 7 fixed majors + 7
+City-States (14 starting positions), more than even a stock "Huge" map's
+player count. An earlier 54×34 draft worked out to roughly 43 land tiles
+per starting position on average, well under what a civ needs to comfortably
+grow past 2-3 cities; this size gets that up to roughly 75.
 
 Unlike a WorldBuilder scenario save, the land itself **regenerates every
 game** the same way stock scripts (Continents, Pangaea, Fractal) do: the
@@ -16,8 +23,8 @@ range/belt/forest clusters into one recognizable shape — the Rockies stay
 a mountain corridor along the west coast, the Great Plains stay a dry
 interior belt, the Canadian boreal forest stays a big contiguous forest —
 while the exact extent, peaks, and patches differ every game. Only the
-eight fixed civ start coordinates and the Great Lakes are pinned down
-exactly; everything else regenerates.
+fixed civ start coordinates and the Great Lakes are pinned down exactly;
+everything else regenerates.
 
 This was hand-written from scratch, not adapted from a tested Firaxis
 script, so treat the first launch as a test run — see **Known rough edges**
@@ -38,13 +45,13 @@ below before you assume something is broken.
    prompted.
 4. Start a new **Single Player** game → set **Map Script** to
    **Colonial Americas** in the advanced setup options.
-5. Add players for Spain, England, France, America, Aztec, Iroquois, Maya,
-   and Shoshone (and any City-States) to get all eight fixed historical
-   starts. **Maya requires the Gods & Kings expansion and Shoshone requires
-   Brave New World** — if you don't own/enable the relevant expansion, that
-   civ simply won't be selectable in the player list, and this mod doesn't
-   need it to be present. Any other civ you add instead falls back to the
-   default start-position finder rather than failing outright.
+5. Add players for Spain, England, France, America, Aztec, Iroquois, and
+   Shoshone (and any City-States) to get all seven fixed historical starts.
+   **Shoshone requires the Brave New World expansion** — if you don't
+   own/enable it, Shoshone simply won't be selectable in the player list,
+   and this mod doesn't need it to be present. Any other civ you add
+   instead falls back to the default start-position finder rather than
+   failing outright.
 
 ## What it does
 
@@ -103,29 +110,39 @@ below before you assume something is broken.
   jungle/marsh (Caribbean, Central America); Fur/Deer in forest and
   tundra/snow (the northern fur trade); Silver in desert (Mexican/Andean
   silver country).
-- `FIXED_STARTS` covers eight civs, all playable from turn 1 and fixed every
+- `FIXED_STARTS` covers seven civs, all playable from turn 1 and fixed every
   game since they're the scenario's historical anchor:
-  - **Spain** near Veracruz, **England** on the Chesapeake, **France** at
-    Quebec, **America** in the Ohio valley (rather than emerging later from
-    a British colony).
+  - **Spain** near Veracruz, **England** on the Atlantic coast, **France**
+    at Quebec, **America** as an interior frontier (rather than emerging
+    later from a British colony) — spread across the width of their bands
+    rather than clustered near each other, since an earlier draft had
+    Iroquois/England/France/America uncomfortably close together.
   - **Aztec** (Montezuma, base game) in the central Mexican highlands,
-    **Iroquois** (Hiawatha, base game) in the Great Lakes/upstate NY,
-    **Maya** (Pacal, requires Gods & Kings) in the Yucatan/Guatemalan
-    highlands, and **Shoshone** (Pocatello, requires Brave New World) in the
-    Great Basin/Rocky Mountain foothills — these are real playable Civ 5
+    **Iroquois** (Hiawatha, base game) in the western Great Lakes, and
+    **Shoshone** (Pocatello, requires Brave New World) in the Great
+    Basin/Rocky Mountain foothills — these are real playable Civ 5
     civilizations, not City-State stand-ins, so they get proper leaders,
-    unique units, and unique buildings.
-  - Every coordinate here is at least 6 tiles from its band's west edge
-    (`ROCKIES_CORRIDOR_WIDTH` is 5), which guarantees zero chance of
+    unique units, and unique buildings. Maya (Pacal) was in an earlier draft
+    too but was dropped — it sat right next to Aztec with barely 3 tiles
+    between them, and Aztec already anchors that part of the map.
+  - Iroquois in particular sits further west within the Great Lakes band
+    than its real historical (upstate NY) location — a deliberate trade of
+    geographic precision for breathing room from England/France/America.
+  - Every coordinate here is at least 8 tiles from its band's west edge
+    (`ROCKIES_CORRIDOR_WIDTH` is 7), which guarantees zero chance of
     generating on top of a fractal-placed mountain tile (see `GetElevation`)
     — keep any new fixed start you add at that same distance or greater.
   - Change the coordinates (or delete an entry) to retune this.
-- `CITY_STATE_SITES` lists nine suggested spots for City-States representing
-  native nations that AREN'T real Civ 5 civilizations (Shawnee, Powhatan,
-  Cherokee, Sioux, Comanche, Apache, Huron, Taino, and a Muisca/Inca-frontier
-  site). Civ 5 can't rename a City-State's underlying personality without an
-  extra mod, but **you can rename the city itself** in World Builder — do
-  that after generating the map to label each site.
+- `CITY_STATE_SITES` lists seven suggested spots for City-States representing
+  native nations that AREN'T real Civ 5 civilizations: Shawnee, Powhatan,
+  Cherokee, Sioux, Apache, Huron, and Taino. An earlier 9-site draft also had
+  Comanche and a Muisca/Inca-frontier site, cut to reduce crowding — Comanche
+  overlapped the same Great Plains niche as Sioux and Shoshone, and the
+  Muisca/Inca site was the vaguest, most isolated entry and least central to
+  a North America-focused colonial scenario. Civ 5 can't rename a
+  City-State's underlying personality without an extra mod, but **you can
+  rename the city itself** in World Builder — do that after generating the
+  map to label each site.
 
 ### Why Cotton/Dye instead of Tobacco
 
@@ -155,12 +172,12 @@ the Lua file:
 - `LAKE_PLOTS` — plots carved out as Great Lakes.
 - `ROCKIES_CORRIDOR_WIDTH` and `GetElevation` — how many tiles east of each
   band's west edge the mountain corridor can reach, and the peak/hills
-  split within it. The Appalachian line (`y >= 17 and y <= 28`, `distFromEast`
-  between 5 and 9) is defined directly inside `GetElevation`.
+  split within it. The Appalachian line (`y >= 22 and y <= 36`, `distFromEast`
+  between 7 and 12) is defined directly inside `GetElevation`.
 - `GetAridPercent` — the rain-shadow formula behind the Great
-  Plains/Mexican-plateau/Andean dry belt: `55 - distFromWest * 6`, pulled
+  Plains/Mexican-plateau/Andean dry belt: `55 - distFromWest * 4.6`, pulled
   toward humid in Canada (`* 0.3`) and the tropics (`* 0.4`). Tune the base
-  55/6 numbers to make the belt wider/narrower/drier/wetter.
+  55/4.6 numbers to make the belt wider/narrower/drier/wetter.
 - `MARSH_ZONES` — the Gulf coast/Mississippi delta and Florida wetland
   zones; add more `{xMin, xMax, yMin, yMax}` entries for other real-world
   marsh regions (e.g. the Yucatan lowlands) if you want them too.
@@ -172,19 +189,23 @@ the Lua file:
   the numbers there to make a given region's forest cover thicker or
   thinner.
 
-Coordinates: `x = 0` is the Pacific edge, `x = 53` the Atlantic edge;
-`y = 0` is the southern edge of the map (northern South America), `y = 33`
-the northern edge (Arctic Canada/Alaska).
+Coordinates: `x = 0` is the Pacific edge, `x = 69` the Atlantic edge;
+`y = 0` is the southern edge of the map (northern South America), `y = 43`
+the northern edge (Arctic Canada/Alaska). All the coordinate tables were
+produced by scaling an earlier 54×34 draft by 1.3x (see git history for the
+pre-scale numbers) — they're a reasonable starting point, not hand-tuned to
+the pixel.
 
 ## Known rough edges (please expect to iterate)
 
 - **Untested against the live Civ 5 Lua API.** I don't have a way to launch
   Civ 5 from here, so this hasn't been run in-engine — I've only syntax
-  checked the script and run its logic (including a clustering check: in a
-  stand-in stub, mountain plots ended up with a mountain neighbor ~100% of
-  the time and forest plots ~99%, versus scattered singles before this
-  rewrite) against a stub of the Civ 5 API, which is not the same as
-  verifying against the real engine. Two spots carry the most risk:
+  checked the script and run its logic (including a clustering check at the
+  current 70x44 size: in a stand-in stub, mountain plots ended up with a
+  mountain neighbor ~99% of the time and forest plots 100%, versus scattered
+  singles before the fractal-clustering rewrite) against a stub of the Civ 5
+  API, which is not the same as verifying against the real engine. Two spots
+  carry the most risk:
   - `FractalWorld.Create()` / `:InitFractal{continent_grain=...}` /
     `:GetHeight(x,y)` / `:GetHeightFromPercent(percent)` — this is what makes
     the coastline, mountains, climate, and forests all regenerate with real
@@ -223,7 +244,7 @@ the northern edge (Arctic Canada/Alaska).
   vanilla Civ 5, so it isn't in `FIXED_STARTS`. If you want it as a full
   playable civ, pair this map with a community Canada civ mod and add a
   `CIVILIZATION_CANADA` entry to `FIXED_STARTS`; otherwise treat one of the
-  Canadian City-State sites (e.g. the Huron site at 30,29) as a Canada
+  Canadian City-State sites (e.g. the Huron site at 39,38) as a Canada
   stand-in.
 - **City-state renaming to native nation names is manual.** The
   `CITY_STATE_SITES` table only fixes *positions* — open World Builder
